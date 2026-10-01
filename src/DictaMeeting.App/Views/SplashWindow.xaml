@@ -1,0 +1,271 @@
+<Window x:Class="DictaMeeting.App.Views.SplashWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="DictaMeeting"
+        Width="640"
+        Height="360"
+        MinWidth="640"
+        MinHeight="360"
+        MaxWidth="640"
+        MaxHeight="360"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        ShowActivated="True"
+        AllowsTransparency="False"
+        Background="White"
+        Loaded="Window_Loaded">
+
+    <Window.Resources>
+
+        <!-- Intro animation: icon + name + brand in a unified sequence -->
+        <Storyboard x:Key="IntroStoryboard">
+
+            <!-- 1. Icon zoom & fade -->
+            <DoubleAnimation
+                Storyboard.TargetName="IconScale"
+                Storyboard.TargetProperty="ScaleX"
+                From="0.94"
+                To="1"
+                Duration="0:0:0.55">
+                <DoubleAnimation.EasingFunction>
+                    <CubicEase EasingMode="EaseOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+
+            <DoubleAnimation
+                Storyboard.TargetName="IconScale"
+                Storyboard.TargetProperty="ScaleY"
+                From="0.94"
+                To="1"
+                Duration="0:0:0.55">
+                <DoubleAnimation.EasingFunction>
+                    <CubicEase EasingMode="EaseOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+
+            <DoubleAnimation
+                Storyboard.TargetName="IconImage"
+                Storyboard.TargetProperty="Opacity"
+                From="0"
+                To="1"
+                Duration="0:0:0.50">
+                <DoubleAnimation.EasingFunction>
+                    <CubicEase EasingMode="EaseOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+
+            <!-- 2. DictaMeeting slide & fade -->
+            <DoubleAnimation
+                Storyboard.TargetName="NameImage"
+                Storyboard.TargetProperty="Opacity"
+                From="0"
+                To="1"
+                BeginTime="0:0:0.20"
+                Duration="0:0:0.55">
+                <DoubleAnimation.EasingFunction>
+                    <CubicEase EasingMode="EaseOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+
+            <DoubleAnimation
+                Storyboard.TargetName="NameTransform"
+                Storyboard.TargetProperty="X"
+                From="-12"
+                To="0"
+                BeginTime="0:0:0.20"
+                Duration="0:0:0.60">
+                <DoubleAnimation.EasingFunction>
+                    <CubicEase EasingMode="EaseOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+
+            <!-- 3. byAritz fade -->
+            <DoubleAnimation
+                Storyboard.TargetName="BrandImage"
+                Storyboard.TargetProperty="Opacity"
+                From="0"
+                To="1"
+                BeginTime="0:0:0.48"
+                Duration="0:0:0.52">
+                <DoubleAnimation.EasingFunction>
+                    <CubicEase EasingMode="EaseOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+
+        </Storyboard>
+
+        <!-- Subtle overlay waves. These are intentionally very transparent. -->
+        <Storyboard x:Key="WaveStoryboard">
+            <DoubleAnimation
+                Storyboard.TargetName="WaveTransform1"
+                Storyboard.TargetProperty="X"
+                From="-80"
+                To="80"
+                Duration="0:0:4.8"
+                AutoReverse="True"
+                RepeatBehavior="Forever">
+                <DoubleAnimation.EasingFunction>
+                    <SineEase EasingMode="EaseInOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+
+            <DoubleAnimation
+                Storyboard.TargetName="WaveTransform2"
+                Storyboard.TargetProperty="X"
+                From="70"
+                To="-70"
+                Duration="0:0:6.5"
+                AutoReverse="True"
+                RepeatBehavior="Forever">
+                <DoubleAnimation.EasingFunction>
+                    <SineEase EasingMode="EaseInOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+
+            <DoubleAnimation
+                Storyboard.TargetName="AnimatedWave1"
+                Storyboard.TargetProperty="Opacity"
+                From="0.035"
+                To="0.10"
+                Duration="0:0:3.2"
+                AutoReverse="True"
+                RepeatBehavior="Forever">
+                <DoubleAnimation.EasingFunction>
+                    <SineEase EasingMode="EaseInOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+
+            <DoubleAnimation
+                Storyboard.TargetName="AnimatedWave2"
+                Storyboard.TargetProperty="Opacity"
+                From="0.025"
+                To="0.07"
+                Duration="0:0:4.1"
+                AutoReverse="True"
+                RepeatBehavior="Forever">
+                <DoubleAnimation.EasingFunction>
+                    <SineEase EasingMode="EaseInOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+        </Storyboard>
+
+        <!-- Final splash fade-out. -->
+        <Storyboard x:Key="ExitStoryboard">
+            <DoubleAnimation
+                Storyboard.TargetName="SplashRoot"
+                Storyboard.TargetProperty="Opacity"
+                From="1"
+                To="0"
+                Duration="0:0:0.28">
+                <DoubleAnimation.EasingFunction>
+                    <CubicEase EasingMode="EaseIn"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+        </Storyboard>
+
+    </Window.Resources>
+
+    <Grid x:Name="SplashRoot" ClipToBounds="True">
+
+        <!-- Static generated background -->
+        <Image Source="/Assets/splash-background.png"
+               Stretch="Fill"
+               IsHitTestVisible="False"/>
+
+        <!-- Subtle animated wave overlay -->
+        <Canvas ClipToBounds="True"
+                IsHitTestVisible="False">
+
+            <Path x:Name="AnimatedWave1"
+                  Fill="#FFFFFF"
+                  Opacity="0.04"
+                  Width="900"
+                  Height="360"
+                  Canvas.Left="-130"
+                  Canvas.Top="0"
+                  Data="M0,190 C120,90 220,90 340,170 C470,255 570,255 700,150 C790,80 850,95 900,130 L900,245 C790,205 730,220 650,285 C520,380 390,365 260,275 C150,200 85,205 0,260 Z">
+                <Path.RenderTransform>
+                    <TranslateTransform x:Name="WaveTransform1"/>
+                </Path.RenderTransform>
+            </Path>
+
+            <Path x:Name="AnimatedWave2"
+                  Fill="#007AFF"
+                  Opacity="0.025"
+                  Width="950"
+                  Height="360"
+                  Canvas.Left="-140"
+                  Canvas.Top="30"
+                  Data="M0,225 C120,140 230,150 350,225 C480,305 610,300 740,200 C825,135 885,145 950,175 L950,285 C860,250 800,265 700,325 C560,410 420,390 290,315 C170,245 90,250 0,295 Z">
+                <Path.RenderTransform>
+                    <TranslateTransform x:Name="WaveTransform2"/>
+                </Path.RenderTransform>
+            </Path>
+
+        </Canvas>
+
+        <!-- Logo lockup -->
+        <Grid HorizontalAlignment="Center"
+              VerticalAlignment="Center"
+              Height="87">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="20"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- Microphone icon: defines total vertical height (87px) and aligns with text block -->
+            <Image x:Name="IconImage"
+                   Grid.Column="0"
+                   Source="/Assets/microphone-icon.png"
+                   Width="89"
+                   Height="87"
+                   HorizontalAlignment="Left"
+                   VerticalAlignment="Center"
+                   Stretch="Uniform"
+                   Opacity="0"
+                   RenderTransformOrigin="0.5,0.5">
+                <Image.RenderTransform>
+                    <ScaleTransform x:Name="IconScale"
+                                    ScaleX="0.94"
+                                    ScaleY="0.94"/>
+                </Image.RenderTransform>
+            </Image>
+
+            <!-- Text elements: matching 87px height -->
+            <Grid Grid.Column="2"
+                  Height="87"
+                  HorizontalAlignment="Left"
+                  VerticalAlignment="Stretch">
+
+                <!-- DictaMeeting: top aligned with icon -->
+                <Image x:Name="NameImage"
+                       Source="/Assets/dictameeting-logo.png"
+                       Width="352"
+                       Height="58"
+                       HorizontalAlignment="Left"
+                       VerticalAlignment="Top"
+                       Stretch="Uniform"
+                       Opacity="0"
+                       RenderTransformOrigin="0,0.5">
+                    <Image.RenderTransform>
+                        <TranslateTransform x:Name="NameTransform"/>
+                    </Image.RenderTransform>
+                </Image>
+
+                <!-- byAritz: bottom aligned with icon -->
+                <Image x:Name="BrandImage"
+                       Source="/Assets/byaritz-logo.png"
+                       Width="82"
+                       Height="24"
+                       HorizontalAlignment="Left"
+                       VerticalAlignment="Bottom"
+                       Stretch="Uniform"
+                       Opacity="0"/>
+            </Grid>
+        </Grid>
+
+    </Grid>
+</Window>

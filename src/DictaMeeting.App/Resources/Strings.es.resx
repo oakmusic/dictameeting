@@ -1,0 +1,1616 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="App_Title" xml:space="preserve">
+    <value>DictaMeeting</value>
+  </data>
+  <data name="App_Subtitle" xml:space="preserve">
+    <value>Transcriptor de Reuniones</value>
+  </data>
+  <data name="App_ByAuthor" xml:space="preserve">
+    <value>byAritz</value>
+  </data>
+  <data name="App_Tagline" xml:space="preserve">
+    <value>Transcripción local y privada de reuniones para Windows.</value>
+  </data>
+  <data name="App_Status_Ready" xml:space="preserve">
+    <value>Listo para grabar</value>
+  </data>
+  <data name="App_Status_Recording" xml:space="preserve">
+    <value>Grabando reunión...</value>
+  </data>
+  <data name="App_Status_Paused" xml:space="preserve">
+    <value>Grabación en pausa</value>
+  </data>
+  <data name="App_Status_Processing" xml:space="preserve">
+    <value>Procesando transcripción y acta...</value>
+  </data>
+  <data name="App_Audio_Monitor_Tooltip" xml:space="preserve">
+    <value>Activar vúmetros para comprobar entrada de audio</value>
+  </data>
+  <data name="App_Developed_By" xml:space="preserve">
+    <value>Desarrollado por </value>
+  </data>
+  <data name="App_Local_Badge" xml:space="preserve">
+    <value>🔒 100% Local</value>
+  </data>
+  <data name="Nav_Meeting" xml:space="preserve">
+    <value>Reunión</value>
+  </data>
+  <data name="Nav_History" xml:space="preserve">
+    <value>Historial</value>
+  </data>
+  <data name="Nav_NewMeeting" xml:space="preserve">
+    <value>Nueva Reunión</value>
+  </data>
+  <data name="Nav_NewMeeting_Tooltip" xml:space="preserve">
+    <value>Iniciar una nueva reunión o importar archivo de audio</value>
+  </data>
+  <data name="Nav_ImportAudio" xml:space="preserve">
+    <value>Importar audio</value>
+  </data>
+  <data name="Nav_ImportTranscript" xml:space="preserve">
+    <value>Importar transcripción</value>
+  </data>
+  <data name="Nav_Settings" xml:space="preserve">
+    <value>Ajustes</value>
+  </data>
+  <data name="Nav_Settings_Tooltip" xml:space="preserve">
+    <value>Ajustes</value>
+  </data>
+  <data name="Meeting_Title_Default" xml:space="preserve">
+    <value>Nueva Reunión</value>
+  </data>
+  <data name="Meeting_Title_Placeholder" xml:space="preserve">
+    <value>Título de la reunión...</value>
+  </data>
+  <data name="Meeting_Title_Edit_Tooltip" xml:space="preserve">
+    <value>Haz clic o pulsa el lápiz para editar el título</value>
+  </data>
+  <data name="Meeting_Title_Save_Tooltip" xml:space="preserve">
+    <value>Guardar título</value>
+  </data>
+  <data name="Meeting_Folder_Tooltip" xml:space="preserve">
+    <value>Abrir carpeta de la reunión</value>
+  </data>
+  <data name="Meeting_Start" xml:space="preserve">
+    <value>Iniciar</value>
+  </data>
+  <data name="Meeting_Starting" xml:space="preserve">
+    <value>Iniciando...</value>
+  </data>
+  <data name="Meeting_Start_Full" xml:space="preserve">
+    <value>Iniciar Reunión</value>
+  </data>
+  <data name="Meeting_Start_Tooltip" xml:space="preserve">
+    <value>Comenzar grabación y transcripción de la reunión</value>
+  </data>
+  <data name="Meeting_Starting_Tooltip" xml:space="preserve">
+    <value>Inicializando modelos de voz y captura de audio...</value>
+  </data>
+  <data name="Meeting_Pause" xml:space="preserve">
+    <value>Pausar</value>
+  </data>
+  <data name="Meeting_Pause_Tooltip" xml:space="preserve">
+    <value>Pausar la grabación temporalmente</value>
+  </data>
+  <data name="Meeting_Resume" xml:space="preserve">
+    <value>Reanudar</value>
+  </data>
+  <data name="Meeting_Resume_Tooltip" xml:space="preserve">
+    <value>Continuar con la grabación</value>
+  </data>
+  <data name="Meeting_Stop" xml:space="preserve">
+    <value>Detener</value>
+  </data>
+  <data name="Meeting_Stopping" xml:space="preserve">
+    <value>Deteniendo...</value>
+  </data>
+  <data name="Meeting_Stop_Full" xml:space="preserve">
+    <value>Detener y Procesar</value>
+  </data>
+  <data name="Meeting_Stop_Tooltip" xml:space="preserve">
+    <value>Detener grabación y procesar reunión</value>
+  </data>
+  <data name="Meeting_Stopping_Tooltip" xml:space="preserve">
+    <value>Finalizando tareas en segundo plano y deteniendo grabación...</value>
+  </data>
+  <data name="Meeting_Prepared" xml:space="preserve">
+    <value>Preparado</value>
+  </data>
+  <data name="Meeting_Ready_Subtitle" xml:space="preserve">
+    <value>Listo para iniciar la grabación</value>
+  </data>
+  <data name="Meeting_Starting_Subtitle" xml:space="preserve">
+    <value>Cargando motor de voz y dispositivos...</value>
+  </data>
+  <data name="Meeting_Cancel" xml:space="preserve">
+    <value>Cancelar</value>
+  </data>
+  <data name="Meeting_Mic_Muted_Alert" xml:space="preserve">
+    <value>Tu micrófono está silenciado</value>
+  </data>
+  <data name="Meeting_Mic_Muted_Detail" xml:space="preserve">
+    <value>Se ha detectado sonido en tu sala, pero tu voz no se está grabando mientras el micrófono esté silenciado.</value>
+  </data>
+  <data name="Meeting_Unmute_Button" xml:space="preserve">
+    <value>Reactivar micrófono (Ctrl+M)</value>
+  </data>
+  <data name="Meeting_Language_Auto" xml:space="preserve">
+    <value>Auto (Español + Inglés)</value>
+  </data>
+  <data name="Meeting_Language_Spanish" xml:space="preserve">
+    <value>Español</value>
+  </data>
+  <data name="Meeting_Language_English" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="Meeting_Language_Tooltip" xml:space="preserve">
+    <value>Idioma principal de la reunión</value>
+  </data>
+  <data name="Meeting_Completed_Badge" xml:space="preserve">
+    <value>Reunión Completada</value>
+  </data>
+  <data name="Meeting_Reprocess_Button" xml:space="preserve">
+    <value>Reprocesar Audio</value>
+  </data>
+  <data name="Meeting_Reprocess_Tooltip" xml:space="preserve">
+    <value>Volver a procesar el audio grabado con otro modelo de transcripción</value>
+  </data>
+  <data name="Meeting_In_Progress_Alert" xml:space="preserve">
+    <value>Hay una reunión en grabación activa o inicializándose. Debe esperar o detenerla antes de iniciar una nueva sesión.</value>
+  </data>
+  <data name="Meeting_In_Progress_Title" xml:space="preserve">
+    <value>Reunión en Curso</value>
+  </data>
+  <data name="Meeting_Import_Audio_In_Progress" xml:space="preserve">
+    <value>Hay una reunión en grabación activa o inicializándose. Debe esperar o detenerla antes de importar audio.</value>
+  </data>
+  <data name="Meeting_Import_Transcript_In_Progress" xml:space="preserve">
+    <value>Hay una reunión en grabación activa o inicializándose. Debe esperar o detenerla antes de importar una transcripción.</value>
+  </data>
+  <data name="Meeting_Duration_Label" xml:space="preserve">
+    <value>Duración: {0}</value>
+  </data>
+  <data name="Meeting_Audio_Available" xml:space="preserve">
+    <value>Audio grabado disponible</value>
+  </data>
+  <data name="Meeting_Audio_Processing" xml:space="preserve">
+    <value>Procesando audio...</value>
+  </data>
+  <data name="Meeting_Audio_None" xml:space="preserve">
+    <value>Sin archivo de audio</value>
+  </data>
+  <data name="Meeting_Status_Completed" xml:space="preserve">
+    <value>Completada</value>
+  </data>
+  <data name="Meeting_Status_Prepared" xml:space="preserve">
+    <value>Preparada</value>
+  </data>
+  <data name="Meeting_Status_Recording" xml:space="preserve">
+    <value>Grabando</value>
+  </data>
+  <data name="Meeting_Models_Summary" xml:space="preserve">
+    <value>En vivo ({0}) / Procesado ({1})</value>
+  </data>
+  <data name="Meeting_Audio_Sources_Tooltip" xml:space="preserve">
+    <value>{0} • {1}</value>
+  </data>
+  <data name="Meeting_Participant_Single" xml:space="preserve">
+    <value>1 participante</value>
+  </data>
+  <data name="Meeting_Participant_Multiple" xml:space="preserve">
+    <value>{0} participantes</value>
+  </data>
+  <data name="Meeting_Header_Models_Tooltip" xml:space="preserve">
+    <value>Modelos configurados para transcripción en vivo y definitiva</value>
+  </data>
+  <data name="Meeting_Header_Language_Tooltip" xml:space="preserve">
+    <value>Idioma de reconocimiento</value>
+  </data>
+  <data name="Meeting_Header_Participants_Tooltip" xml:space="preserve">
+    <value>Número de participantes registrados o detectados</value>
+  </data>
+  <data name="AudioSource_MicSys" xml:space="preserve">
+    <value>Micrófono · Sistema</value>
+  </data>
+  <data name="AudioSource_Mic" xml:space="preserve">
+    <value>Micrófono</value>
+  </data>
+  <data name="AudioSource_Sys" xml:space="preserve">
+    <value>Audio del sistema</value>
+  </data>
+  <data name="AudioSource_None" xml:space="preserve">
+    <value>Sin audio</value>
+  </data>
+  <data name="AudioSource_Mic_Enabled" xml:space="preserve">
+    <value>Micrófono: {0}</value>
+  </data>
+  <data name="AudioSource_Mic_Disabled" xml:space="preserve">
+    <value>Micrófono: Desactivado</value>
+  </data>
+  <data name="AudioSource_Sys_Enabled" xml:space="preserve">
+    <value>Sistema: {0}</value>
+  </data>
+  <data name="AudioSource_Sys_Disabled" xml:space="preserve">
+    <value>Sistema: Desactivado</value>
+  </data>
+  <data name="AudioSource_Activated" xml:space="preserve">
+    <value>Activado</value>
+  </data>
+  <data name="AudioSettings_MicLevel_Tooltip" xml:space="preserve">
+    <value>Nivel de entrada del micrófono</value>
+  </data>
+  <data name="AudioSettings_SystemLevel_Tooltip" xml:space="preserve">
+    <value>Nivel de audio del sistema (WASAPI Loopback)</value>
+  </data>
+  <data name="History_Quick_New" xml:space="preserve">
+    <value>+ Crear Nueva Reunión</value>
+  </data>
+  <data name="History_Intervention_Single" xml:space="preserve">
+    <value>1 intervención</value>
+  </data>
+  <data name="History_Interventions_Multiple" xml:space="preserve">
+    <value>{0} intervenciones</value>
+  </data>
+  <data name="History_Default_Speaker" xml:space="preserve">
+    <value>Locutor</value>
+  </data>
+  <data name="Models_Button_Settings" xml:space="preserve">
+    <value>Ajustes</value>
+  </data>
+  <data name="Audio_Mic_Label" xml:space="preserve">
+    <value>Micrófono</value>
+  </data>
+  <data name="Audio_Mic_Muted_Label" xml:space="preserve">
+    <value>Mic (Silenciado)</value>
+  </data>
+  <data name="Audio_Mic_Mute_Tooltip" xml:space="preserve">
+    <value>Silenciar micrófono temporalmente (Ctrl+M)</value>
+  </data>
+  <data name="Audio_Mic_Unmute_Tooltip" xml:space="preserve">
+    <value>Micrófono silenciado. Clic o Ctrl+M para reactivar</value>
+  </data>
+  <data name="Audio_System_Label" xml:space="preserve">
+    <value>Audio del sistema</value>
+  </data>
+  <data name="Audio_System_Muted_Label" xml:space="preserve">
+    <value>Sistema (Silenciado)</value>
+  </data>
+  <data name="Audio_System_Mute_Tooltip" xml:space="preserve">
+    <value>Silenciar audio del sistema temporalmente</value>
+  </data>
+  <data name="Audio_System_Unmute_Tooltip" xml:space="preserve">
+    <value>Audio del sistema silenciado. Clic para reactivar</value>
+  </data>
+  <data name="Audio_Player_Play_Tooltip" xml:space="preserve">
+    <value>Reproducir audio (Espacio)</value>
+  </data>
+  <data name="Audio_Player_Pause_Tooltip" xml:space="preserve">
+    <value>Pausar audio (Espacio)</value>
+  </data>
+  <data name="Audio_Player_Volume_Muted_Tooltip" xml:space="preserve">
+    <value>Audio silenciado (clic para activar)</value>
+  </data>
+  <data name="Audio_Player_Volume_Tooltip" xml:space="preserve">
+    <value>Volumen: {0} (clic para silenciar)</value>
+  </data>
+  <data name="Transcript_Header_Processing" xml:space="preserve">
+    <value>TRANSCRIPCIÓN · PROCESANDO</value>
+  </data>
+  <data name="Transcript_Header_Live" xml:space="preserve">
+    <value>TRANSCRIPCIÓN EN VIVO</value>
+  </data>
+  <data name="Transcript_Header_Final" xml:space="preserve">
+    <value>TRANSCRIPCIÓN FINAL</value>
+  </data>
+  <data name="Transcript_Header_Default" xml:space="preserve">
+    <value>TRANSCRIPCIÓN</value>
+  </data>
+  <data name="Transcript_Subtitle_Processing" xml:space="preserve">
+    <value>• Procesando modelo de alta fidelidad...</value>
+  </data>
+  <data name="Transcript_Subtitle_Completed" xml:space="preserve">
+    <value>• Alta fidelidad (Transcripción + Diarización)</value>
+  </data>
+  <data name="Transcript_Subtitle_Live" xml:space="preserve">
+    <value>• Flujo continuo en vivo</value>
+  </data>
+  <data name="Transcript_Subtitle_Default" xml:space="preserve">
+    <value>• Flujo continuo</value>
+  </data>
+  <data name="Summary_Header_Processing" xml:space="preserve">
+    <value>RESUMEN</value>
+  </data>
+  <data name="Summary_Header_Live" xml:space="preserve">
+    <value>RESUMEN EN VIVO</value>
+  </data>
+  <data name="Summary_Header_Final" xml:space="preserve">
+    <value>RESUMEN FINAL</value>
+  </data>
+  <data name="Live_Title" xml:space="preserve">
+    <value>Transcripción en vivo</value>
+  </data>
+  <data name="Live_Waiting" xml:space="preserve">
+    <value>A la espera de transcripción...</value>
+  </data>
+  <data name="Live_Interventions_Empty" xml:space="preserve">
+    <value>No hay intervenciones transcritas en esta reunión.</value>
+  </data>
+  <data name="Live_Copy_Tooltip" xml:space="preserve">
+    <value>Copiar transcripción al portapapeles</value>
+  </data>
+  <data name="Live_Export_Tooltip" xml:space="preserve">
+    <value>Exportar transcripción en formato Markdown, Texto plano o JSON</value>
+  </data>
+  <data name="Live_Badge_Local" xml:space="preserve">
+    <value>100% Local</value>
+  </data>
+  <data name="Summary_Tab" xml:space="preserve">
+    <value>Resumen</value>
+  </data>
+  <data name="Minutes_Tab" xml:space="preserve">
+    <value>Acta</value>
+  </data>
+  <data name="Summary_Title" xml:space="preserve">
+    <value>Resumen en Vivo con IA</value>
+  </data>
+  <data name="Summary_Description" xml:space="preserve">
+    <value>Cada 1 o 2 minutos se generará automáticamente una tarjeta con el resumen del tramo (~50 palabras).</value>
+  </data>
+  <data name="Summary_Card_JustNow" xml:space="preserve">
+    <value>Hace un instante</value>
+  </data>
+  <data name="Summary_Card_SecondsAgo" xml:space="preserve">
+    <value>Hace {0} s</value>
+  </data>
+  <data name="Summary_Card_OneMinuteAgo" xml:space="preserve">
+    <value>Hace 1 min</value>
+  </data>
+  <data name="Summary_Card_MinutesAgo" xml:space="preserve">
+    <value>Hace {0} min</value>
+  </data>
+  <data name="Minutes_Title" xml:space="preserve">
+    <value>Acta Ejecutiva con IA</value>
+  </data>
+  <data name="Minutes_Description" xml:space="preserve">
+    <value>Genera un resumen formal y estructurado con acuerdos, decisiones y tareas de esta reunión utilizando inteligencia artificial.</value>
+  </data>
+  <data name="Minutes_Generate_Button" xml:space="preserve">
+    <value>Redactar Acta con IA</value>
+  </data>
+  <data name="Minutes_Generate_Button_Short" xml:space="preserve">
+    <value>Generar Acta</value>
+  </data>
+  <data name="Minutes_Generate_Tooltip" xml:space="preserve">
+    <value>Generar acta ejecutiva de la reunión con IA</value>
+  </data>
+  <data name="Minutes_Regenerate_Button" xml:space="preserve">
+    <value>Redactar de nuevo</value>
+  </data>
+  <data name="Minutes_Regenerate_Tooltip" xml:space="preserve">
+    <value>Volver a redactar o personalizar el acta con IA</value>
+  </data>
+  <data name="Minutes_Copy_Tooltip" xml:space="preserve">
+    <value>Copiar acta al portapapeles</value>
+  </data>
+  <data name="Minutes_Save_Md" xml:space="preserve">
+    <value>Guardar .md</value>
+  </data>
+  <data name="Minutes_Save_Md_Tooltip" xml:space="preserve">
+    <value>Guardar acta en archivo Markdown (.md)</value>
+  </data>
+  <data name="Minutes_Impersonal_Option" xml:space="preserve">
+    <value>Acta impersonal</value>
+  </data>
+  <data name="Minutes_Impersonal_Tooltip" xml:space="preserve">
+    <value>Redacta el acta de forma impersonal sin atribuir intervenciones ni incluir códigos SPEAKER_XX</value>
+  </data>
+  <data name="Minutes_Format_Markdown" xml:space="preserve">
+    <value>Markdown (.md)</value>
+  </data>
+  <data name="Minutes_Format_Text" xml:space="preserve">
+    <value>Texto Plano (.txt)</value>
+  </data>
+  <data name="Minutes_Format_Json" xml:space="preserve">
+    <value>Archivo JSON (.json)</value>
+  </data>
+  <data name="Participants_Title" xml:space="preserve">
+    <value>PARTICIPANTES</value>
+  </data>
+  <data name="Participants_Add_Button" xml:space="preserve">
+    <value>+ Añadir</value>
+  </data>
+  <data name="Participants_Add_Placeholder" xml:space="preserve">
+    <value>Escribe el nombre del participante y presiona Enter o Añadir</value>
+  </data>
+  <data name="Participants_Empty" xml:space="preserve">
+    <value>Añade los asistentes para asociarlos a las voces.</value>
+  </data>
+  <data name="Participants_Delete_Tooltip" xml:space="preserve">
+    <value>Eliminar de la lista de participantes</value>
+  </data>
+  <data name="Participants_Voices_Title" xml:space="preserve">
+    <value>VOCES DETECTADAS</value>
+  </data>
+  <data name="Participants_Voices_Subtitle" xml:space="preserve">
+    <value>Selecciona en el desplegable quién es cada voz.</value>
+  </data>
+  <data name="Participants_Voice_Select_Tooltip" xml:space="preserve">
+    <value>Selecciona el asistente correspondiente a esta voz</value>
+  </data>
+  <data name="Participants_Speaking_Time_Tooltip" xml:space="preserve">
+    <value>Tiempo total de habla</value>
+  </data>
+  <data name="Participants_Registered_Format" xml:space="preserve">
+    <value>{0} registrados</value>
+  </data>
+  <data name="Participants_Voices_Format" xml:space="preserve">
+    <value>{0} voces</value>
+  </data>
+  <data name="Participants_Interventions_Format" xml:space="preserve">
+    <value>{0} interv.</value>
+  </data>
+  <data name="History_Title" xml:space="preserve">
+    <value>Historial de Reuniones</value>
+  </data>
+  <data name="History_Subtitle" xml:space="preserve">
+    <value>HISTORIAL GUARDADO</value>
+  </data>
+  <data name="History_Search_Placeholder" xml:space="preserve">
+    <value>Buscar por título, fecha o texto...</value>
+  </data>
+  <data name="History_Empty" xml:space="preserve">
+    <value>No hay reuniones guardadas</value>
+  </data>
+  <data name="History_Select_Prompt" xml:space="preserve">
+    <value>Selecciona una reunión del historial</value>
+  </data>
+  <data name="History_Select_Hint" xml:space="preserve">
+    <value>Podrás examinar su información preliminar y pulsar 'Ver reunión' para abrirla en el espacio de trabajo principal.</value>
+  </data>
+  <data name="History_Open_Button" xml:space="preserve">
+    <value>Ver reunión</value>
+  </data>
+  <data name="History_Open_Arrow_Button" xml:space="preserve">
+    <value>Abrir reunión →</value>
+  </data>
+  <data name="History_Open_Tooltip" xml:space="preserve">
+    <value>Cargar esta reunión completa en la pantalla de 'Reunión' para trabajar con ella</value>
+  </data>
+  <data name="History_Open_Workspace_Tooltip" xml:space="preserve">
+    <value>Abrir esta reunión en el workspace principal de Reunión</value>
+  </data>
+  <data name="History_Delete_Button" xml:space="preserve">
+    <value>Eliminar</value>
+  </data>
+  <data name="History_Delete_Confirm" xml:space="preserve">
+    <value>¿Estás seguro de que deseas eliminar esta reunión? Esta acción borrará la transcripción, el acta y los datos asociados.</value>
+  </data>
+  <data name="History_Preview_Transcript" xml:space="preserve">
+    <value>VISTA PREVIA DE TRANSCRIPCIÓN</value>
+  </data>
+  <data name="History_Preview_Summary" xml:space="preserve">
+    <value>VISTA PREVIA DE RESUMEN</value>
+  </data>
+  <data name="History_Detail_Notice" xml:space="preserve">
+    <value>Para ver la transcripción completa, editar o mapear locutores, redactar un acta o reprocesar el audio, abre esta reunión en detalle.</value>
+  </data>
+  <data name="History_Pill_Transcript" xml:space="preserve">
+    <value>✓ Transcripción</value>
+  </data>
+  <data name="History_Pill_Summary" xml:space="preserve">
+    <value>✓ Resumen</value>
+  </data>
+  <data name="History_Pill_Acta" xml:space="preserve">
+    <value>⚡ Acta</value>
+  </data>
+  <data name="History_Total_Segments" xml:space="preserve">
+    <value>{0} fragmentos totales</value>
+  </data>
+  <data name="History_Remaining_Segments" xml:space="preserve">
+    <value>y {0} intervenciones más...</value>
+  </data>
+  <data name="History_No_Summary" xml:space="preserve">
+    <value>Esta reunión no dispone de resumen generado.</value>
+  </data>
+  <data name="History_Acta_Status_Done" xml:space="preserve">
+    <value>✓ Acta ejecutiva redactada</value>
+  </data>
+  <data name="History_Acta_Status_None" xml:space="preserve">
+    <value>— Sin acta redactada</value>
+  </data>
+  <data name="History_Status_Processing" xml:space="preserve">
+    <value>Procesando {0}%</value>
+  </data>
+  <data name="History_Status_Pending" xml:space="preserve">
+    <value>Pendiente</value>
+  </data>
+  <data name="History_Status_Cancelled" xml:space="preserve">
+    <value>Cancelado</value>
+  </data>
+  <data name="History_Status_Completed" xml:space="preserve">
+    <value>Completado</value>
+  </data>
+  <data name="History_Summary_Line" xml:space="preserve">
+    <value>{0} participantes • {1} interv.</value>
+  </data>
+  <data name="History_No_Participants" xml:space="preserve">
+    <value>Sin participantes registrados</value>
+  </data>
+  <data name="History_Detected_Voices_Format" xml:space="preserve">
+    <value>{0} voces detectadas ({1})</value>
+  </data>
+  <data name="Player_Play" xml:space="preserve">
+    <value>Reproducir</value>
+  </data>
+  <data name="Player_Pause" xml:space="preserve">
+    <value>Pausar</value>
+  </data>
+  <data name="Player_Replay5" xml:space="preserve">
+    <value>Retroceder 5 segundos</value>
+  </data>
+  <data name="Player_Forward5" xml:space="preserve">
+    <value>Avanzar 5 segundos</value>
+  </data>
+  <data name="Player_Speed" xml:space="preserve">
+    <value>Velocidad</value>
+  </data>
+  <data name="Player_Volume" xml:space="preserve">
+    <value>Volumen</value>
+  </data>
+  <data name="Player_Idle" xml:space="preserve">
+    <value>Audio en reposo</value>
+  </data>
+  <data name="Settings_Title" xml:space="preserve">
+    <value>Ajustes</value>
+  </data>
+  <data name="Settings_General_Title" xml:space="preserve">
+    <value>Ajustes Generales</value>
+  </data>
+  <data name="Settings_Card_Models_Title" xml:space="preserve">
+    <value>Modelos de transcripción</value>
+  </data>
+  <data name="Settings_Card_Models_Subtitle" xml:space="preserve">
+    <value>Gestiona los modelos de voz locales.</value>
+  </data>
+  <data name="Settings_Card_Models_Tooltip" xml:space="preserve">
+    <value>Gestionar y examinar modelos de transcripción local</value>
+  </data>
+  <data name="Settings_Card_Ai_Title" xml:space="preserve">
+    <value>Proveedores de IA</value>
+  </data>
+  <data name="Settings_Card_Ai_Subtitle" xml:space="preserve">
+    <value>Configura los servicios para generar actas.</value>
+  </data>
+  <data name="Settings_Card_Ai_Tooltip" xml:space="preserve">
+    <value>Configurar clave API e integración de inteligencia artificial</value>
+  </data>
+  <data name="Settings_Card_Vocab_Title" xml:space="preserve">
+    <value>Vocabulario y palabras clave</value>
+  </data>
+  <data name="Settings_Card_Vocab_Subtitle" xml:space="preserve">
+    <value>Mejora el reconocimiento de nombres y términos.</value>
+  </data>
+  <data name="Settings_Card_Vocab_Tooltip" xml:space="preserve">
+    <value>Gestionar glosario de términos, acrónimos y expresiones fonéticas</value>
+  </data>
+  <data name="Settings_Card_Privacy_Title" xml:space="preserve">
+    <value>Privacidad y grabación</value>
+  </data>
+  <data name="Settings_Card_Privacy_Subtitle" xml:space="preserve">
+    <value>Consulta cómo se procesan y almacenan tus datos.</value>
+  </data>
+  <data name="Settings_Card_Privacy_Tooltip" xml:space="preserve">
+    <value>Información sobre procesamiento local, avisos de grabación y privacidad</value>
+  </data>
+  <data name="Settings_Card_Privacy_Badge" xml:space="preserve">
+    <value>Local / Remoto</value>
+  </data>
+  <data name="Settings_Card_System_Title" xml:space="preserve">
+    <value>Sistema</value>
+  </data>
+  <data name="Settings_Card_System_Subtitle" xml:space="preserve">
+    <value>Tema e idioma de la aplicación</value>
+  </data>
+  <data name="Settings_Card_System_Tooltip" xml:space="preserve">
+    <value>Configurar el tema visual y el idioma de la interfaz</value>
+  </data>
+  <data name="Settings_Card_About_Title" xml:space="preserve">
+    <value>Acerca de</value>
+  </data>
+  <data name="Settings_Card_About_Subtitle" xml:space="preserve">
+    <value>Información sobre DictaMeeting, su autor y las tecnologías utilizadas.</value>
+  </data>
+  <data name="Settings_Card_About_Tooltip" xml:space="preserve">
+    <value>Información sobre DictaMeeting, su autor y tecnologías</value>
+  </data>
+  <data name="Settings_Theme_Light" xml:space="preserve">
+    <value>Claro</value>
+  </data>
+  <data name="Settings_Theme_Dark" xml:space="preserve">
+    <value>Oscuro</value>
+  </data>
+  <data name="Theme_Toggle_Light_Tooltip" xml:space="preserve">
+    <value>Modo claro (clic para cambiar a oscuro)</value>
+  </data>
+  <data name="Theme_Toggle_Dark_Tooltip" xml:space="preserve">
+    <value>Modo oscuro (clic para cambiar a claro)</value>
+  </data>
+  <data name="System_Modal_Title" xml:space="preserve">
+    <value>Sistema</value>
+  </data>
+  <data name="System_Modal_Subtitle" xml:space="preserve">
+    <value>Tema e idioma de la aplicación</value>
+  </data>
+  <data name="System_Section_Theme_Title" xml:space="preserve">
+    <value>TEMA</value>
+  </data>
+  <data name="System_Section_Language_Title" xml:space="preserve">
+    <value>IDIOMA</value>
+  </data>
+  <data name="System_Theme_Light" xml:space="preserve">
+    <value>Claro</value>
+  </data>
+  <data name="System_Theme_Dark" xml:space="preserve">
+    <value>Oscuro</value>
+  </data>
+  <data name="System_Language_Spanish" xml:space="preserve">
+    <value>Español</value>
+  </data>
+  <data name="System_Language_English" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="System_Language_Hint" xml:space="preserve">
+    <value>El idioma de la interfaz es independiente del idioma de transcripción de las reuniones.</value>
+  </data>
+  <data name="AudioSettings_Title" xml:space="preserve">
+    <value>Ajustes de Grabación y Modelos</value>
+  </data>
+  <data name="AudioSettings_InputDevices" xml:space="preserve">
+    <value>Dispositivos de Entrada de Audio</value>
+  </data>
+  <data name="AudioSettings_Mic" xml:space="preserve">
+    <value>Micrófono</value>
+  </data>
+  <data name="AudioSettings_Mic_Capture" xml:space="preserve">
+    <value>Capturar micrófono</value>
+  </data>
+  <data name="AudioSettings_Mic_Tooltip" xml:space="preserve">
+    <value>Dispositivo de micrófono a capturar</value>
+  </data>
+  <data name="AudioSettings_SystemAudio" xml:space="preserve">
+    <value>Audio del sistema</value>
+  </data>
+  <data name="AudioSettings_SystemAudio_Capture" xml:space="preserve">
+    <value>Capturar audio del sistema</value>
+  </data>
+  <data name="AudioSettings_SystemAudio_Tooltip" xml:space="preserve">
+    <value>Dispositivo de audio de salida para capturar participantes remotos</value>
+  </data>
+  <data name="AudioSettings_Refresh" xml:space="preserve">
+    <value>Actualizar</value>
+  </data>
+  <data name="AudioSettings_Refresh_Tooltip" xml:space="preserve">
+    <value>Escanear nuevamente dispositivos conectados o desconectados</value>
+  </data>
+  <data name="AudioSettings_TestAudio" xml:space="preserve">
+    <value>Probar Audio</value>
+  </data>
+  <data name="AudioSettings_TestAudio_Stop" xml:space="preserve">
+    <value>Detener Prueba</value>
+  </data>
+  <data name="AudioSettings_TestAudio_Tooltip" xml:space="preserve">
+    <value>Activa los vúmetros para comprobar la entrada de audio antes de iniciar la reunión</value>
+  </data>
+  <data name="AudioSettings_ModelsAndLang" xml:space="preserve">
+    <value>Modelos de transcripción e idioma</value>
+  </data>
+  <data name="AudioSettings_LiveModel" xml:space="preserve">
+    <value>Modelo en vivo</value>
+  </data>
+  <data name="AudioSettings_LiveModel_Tooltip" xml:space="preserve">
+    <value>Modelo ligero para transcripción en tiempo real</value>
+  </data>
+  <data name="AudioSettings_FinalModel" xml:space="preserve">
+    <value>Modelo final</value>
+  </data>
+  <data name="AudioSettings_FinalModel_Tooltip" xml:space="preserve">
+    <value>Modelo de alta fidelidad para consolidación final</value>
+  </data>
+  <data name="AudioSettings_Language" xml:space="preserve">
+    <value>Idioma predominante</value>
+  </data>
+  <data name="AudioSettings_Language_Tooltip" xml:space="preserve">
+    <value>Idioma de reconocimiento</value>
+  </data>
+  <data name="AudioSettings_AutoSave_Note" xml:space="preserve">
+    <value>Los ajustes se guardan automáticamente para futuras reuniones.</value>
+  </data>
+  <data name="Models_Title" xml:space="preserve">
+    <value>Modelos de transcripción</value>
+  </data>
+  <data name="Models_Location_Title" xml:space="preserve">
+    <value>Ubicación de los modelos</value>
+  </data>
+  <data name="Models_Location_Desc" xml:space="preserve">
+    <value>Los modelos pueden ocupar varios GB. Puedes almacenarlos en otra unidad.</value>
+  </data>
+  <data name="Models_Change_Folder" xml:space="preserve">
+    <value>Cambiar ubicación</value>
+  </data>
+  <data name="Models_Restore_Default" xml:space="preserve">
+    <value>Restablecer</value>
+  </data>
+  <data name="Models_Status_Downloaded" xml:space="preserve">
+    <value>Descargado</value>
+  </data>
+  <data name="Models_Status_Available" xml:space="preserve">
+    <value>Disponible</value>
+  </data>
+  <data name="Models_Status_Downloading" xml:space="preserve">
+    <value>Descargando...</value>
+  </data>
+  <data name="Models_Status_Pending" xml:space="preserve">
+    <value>Pendiente</value>
+  </data>
+  <data name="Models_Action_Download" xml:space="preserve">
+    <value>Descargar Modelo Local</value>
+  </data>
+  <data name="Models_Action_Cancel" xml:space="preserve">
+    <value>Cancelar descarga</value>
+  </data>
+  <data name="Models_Action_Retry" xml:space="preserve">
+    <value>Reintentar descarga</value>
+  </data>
+  <data name="Models_Action_Delete" xml:space="preserve">
+    <value>Eliminar</value>
+  </data>
+  <data name="Models_Action_Delete_Tooltip" xml:space="preserve">
+    <value>Eliminar archivo del modelo para liberar espacio</value>
+  </data>
+  <data name="Models_Recommended_Badge" xml:space="preserve">
+    <value>★ RECOMENDADO</value>
+  </data>
+  <data name="Models_Recommended_Subtitle" xml:space="preserve">
+    <value>Recomendación Inteligente de Hardware</value>
+  </data>
+  <data name="Models_Recommended_Hardware" xml:space="preserve">
+    <value>★ RECOMENDADO PARA TU EQUIPO</value>
+  </data>
+  <data name="Models_Footer_Note" xml:space="preserve">
+    <value>Los modelos se guardan localmente y funcionan 100% sin conexión a internet.</value>
+  </data>
+  <data name="Models_Default_Location" xml:space="preserve">
+    <value>Ubicación predeterminada</value>
+  </data>
+  <data name="Models_Custom_Location" xml:space="preserve">
+    <value>Ubicación personalizada</value>
+  </data>
+  <data name="Models_Location_NotValid" xml:space="preserve">
+    <value>La carpeta seleccionada no es válida.</value>
+  </data>
+  <data name="Models_Location_Configured" xml:space="preserve">
+    <value>La ubicación de los modelos se ha configurado en:
+{0}</value>
+  </data>
+  <data name="Models_Location_Title_Dialog" xml:space="preserve">
+    <value>Ubicación de Modelos</value>
+  </data>
+  <data name="Models_Location_NotAvailable_Dialog" xml:space="preserve">
+    <value>Ubicación No Disponible</value>
+  </data>
+  <data name="Models_Location_NotAvailable_Msg" xml:space="preserve">
+    <value>La ubicación configurada ({0}) no está disponible. Conecte la unidad o seleccione otra ubicación antes de descargar.</value>
+  </data>
+  <data name="Models_Delete_Confirm_Msg" xml:space="preserve">
+    <value>¿Está seguro de que desea eliminar el archivo local del modelo '{0}' ({1}) para liberar espacio en disco?</value>
+  </data>
+  <data name="Models_Delete_Confirm_Title" xml:space="preserve">
+    <value>Eliminar Modelo Local</value>
+  </data>
+  <data name="Models_Ready_Title" xml:space="preserve">
+    <value>DictaMeeting — Modelo Listo</value>
+  </data>
+  <data name="Models_Ready_Msg" xml:space="preserve">
+    <value>El modelo {0} se ha descargado correctamente y está listo para transcribir.</value>
+  </data>
+  <data name="Models_Download_Error_Title" xml:space="preserve">
+    <value>Error de Descarga</value>
+  </data>
+  <data name="Models_Download_Error_Msg" xml:space="preserve">
+    <value>Error al descargar el modelo {0}: {1}</value>
+  </data>
+  <data name="Models_Download_Button_Format" xml:space="preserve">
+    <value>⬇ Descargar ({0})</value>
+  </data>
+  <data name="Migrate_Title" xml:space="preserve">
+    <value>Mover modelos a la nueva ubicación</value>
+  </data>
+  <data name="Migrate_Subtitle" xml:space="preserve">
+    <value>Se han encontrado modelos existentes en la ubicación actual.</value>
+  </data>
+  <data name="Migrate_Current_Location" xml:space="preserve">
+    <value>Ubicación actual (origen):</value>
+  </data>
+  <data name="Migrate_New_Location" xml:space="preserve">
+    <value>Nueva ubicación (destino):</value>
+  </data>
+  <data name="Migrate_Total_Size" xml:space="preserve">
+    <value>Tamaño total: {0}</value>
+  </data>
+  <data name="Migrate_Models_Count" xml:space="preserve">
+    <value>{0} modelos</value>
+  </data>
+  <data name="Migrate_Error_Title" xml:space="preserve">
+    <value>⚠️ Error durante la migración</value>
+  </data>
+  <data name="Migrate_Move_Button" xml:space="preserve">
+    <value>Mover modelos</value>
+  </data>
+  <data name="Migrate_Keep_Button" xml:space="preserve">
+    <value>Cambiar sin mover</value>
+  </data>
+  <data name="Migrate_Keep_Tooltip" xml:space="preserve">
+    <value>Los modelos existentes permanecerán en la carpeta anterior sin copiarse</value>
+  </data>
+  <data name="Migrate_Cancel_Button" xml:space="preserve">
+    <value>Cancelar migración</value>
+  </data>
+  <data name="Migrate_Warn_Msg" xml:space="preserve">
+    <value>Los modelos existentes permanecerán en la ubicación anterior y no se copiarán a la nueva carpeta.
+
+¿Desea cambiar la ubicación de todos modos?</value>
+  </data>
+  <data name="Migrate_Success_Msg" xml:space="preserve">
+    <value>Todos los modelos han sido migrados con éxito y verificados en la nueva ubicación:
+{0}</value>
+  </data>
+  <data name="Migrate_Success_Title" xml:space="preserve">
+    <value>Migración Completada</value>
+  </data>
+  <data name="Migrate_Cancelled_Msg" xml:space="preserve">
+    <value>La migración ha sido cancelada. Los modelos originales permanecen intactos en la ubicación anterior y no se ha modificado la configuración.</value>
+  </data>
+  <data name="Migrate_Cancelled_Title" xml:space="preserve">
+    <value>Migración Cancelada</value>
+  </data>
+  <data name="AiConfig_Title" xml:space="preserve">
+    <value>Proveedores de IA</value>
+  </data>
+  <data name="AiConfig_Subtitle" xml:space="preserve">
+    <value>Conecta DictaMeeting a OpenRouter o a cualquier servidor compatible con la API de OpenAI, como LiteLLM.</value>
+  </data>
+  <data name="AiConfig_Provider_Label" xml:space="preserve">
+    <value>Proveedor de IA</value>
+  </data>
+  <data name="AiConfig_Provider_OpenRouter" xml:space="preserve">
+    <value>OpenRouter</value>
+  </data>
+  <data name="AiConfig_Provider_Custom" xml:space="preserve">
+    <value>Servidor personalizado</value>
+  </data>
+  <data name="AiConfig_ApiKey_Label" xml:space="preserve">
+    <value>API Key</value>
+  </data>
+  <data name="AiConfig_ApiKey_Help" xml:space="preserve">
+    <value>Clave de acceso al servicio (protegida con Windows DPAPI). Obtener en openrouter.ai/keys</value>
+  </data>
+  <data name="AiConfig_ApiKey_Placeholder" xml:space="preserve">
+    <value>Clave de API de OpenRouter (sk-or-...)</value>
+  </data>
+  <data name="AiConfig_Model_Label" xml:space="preserve">
+    <value>Modelo de IA</value>
+  </data>
+  <data name="AiConfig_Custom_Endpoint_Label" xml:space="preserve">
+    <value>URL base del servidor.</value>
+  </data>
+  <data name="AiConfig_Custom_Endpoint_Placeholder" xml:space="preserve">
+    <value>URL base o endpoint del servidor (ej. https://mi-servidor.com/v1)</value>
+  </data>
+  <data name="AiConfig_Custom_Model_Label" xml:space="preserve">
+    <value>Nombre del modelo disponible en el servidor.</value>
+  </data>
+  <data name="AiConfig_Custom_Model_Placeholder" xml:space="preserve">
+    <value>Nombre o identificador del modelo en su servidor (ej. qwen3.8-27b)</value>
+  </data>
+  <data name="AiConfig_Test_Connection" xml:space="preserve">
+    <value>Probar conexión</value>
+  </data>
+  <data name="AiConfig_Endpoint_Title" xml:space="preserve">
+    <value>Endpoint</value>
+  </data>
+  <data name="AiConfig_Model_Title" xml:space="preserve">
+    <value>Modelo</value>
+  </data>
+  <data name="AiConfig_Save_Key_Button" xml:space="preserve">
+    <value>💾 Guardar Clave</value>
+  </data>
+  <data name="AiConfig_Delete_Button" xml:space="preserve">
+    <value>🗑 Eliminar</value>
+  </data>
+  <data name="AiConfig_Test_Button" xml:space="preserve">
+    <value>⚡ Probar conexión</value>
+  </data>
+  <data name="AiConfig_Save_Config_Button" xml:space="preserve">
+    <value>💾 Guardar Configuración</value>
+  </data>
+  <data name="AiConfig_Delete_Key_Button" xml:space="preserve">
+    <value>🗑 Eliminar Clave</value>
+  </data>
+  <data name="AiConfig_Custom_Key_Tooltip" xml:space="preserve">
+    <value>Introduzca la clave de API del servidor personalizado</value>
+  </data>
+  <data name="AiConfig_Custom_Key_Help" xml:space="preserve">
+    <value>Clave de acceso al servicio (protegida con Windows DPAPI).</value>
+  </data>
+  <data name="AiConfig_OpenRouter_Key_Tooltip" xml:space="preserve">
+    <value>Introduzca su clave de OpenRouter</value>
+  </data>
+  <data name="AiConfig_Callout_Privacy" xml:space="preserve">
+    <value>El contenido de la reunión se enviará al proveedor seleccionado al generar el acta.</value>
+  </data>
+  <data name="AiConfig_Testing" xml:space="preserve">
+    <value>Actualizando...</value>
+  </data>
+  <data name="AiConfig_Save_Key" xml:space="preserve">
+    <value>Guardar Clave</value>
+  </data>
+  <data name="AiConfig_Save_Config" xml:space="preserve">
+    <value>Guardar Configuración</value>
+  </data>
+  <data name="AiConfig_Delete_Key" xml:space="preserve">
+    <value>Eliminar Clave</value>
+  </data>
+  <data name="AiConfig_Status_Connected" xml:space="preserve">
+    <value>Conexión exitosa</value>
+  </data>
+  <data name="AiConfig_Status_Failed" xml:space="preserve">
+    <value>Error de conexión</value>
+  </data>
+  <data name="AiConfig_Status_Configured" xml:space="preserve">
+    <value>Configurado</value>
+  </data>
+  <data name="AiConfig_Status_NotConfigured" xml:space="preserve">
+    <value>No configurado</value>
+  </data>
+  <data name="AiConfig_KeySaved_DPAPI" xml:space="preserve">
+    <value>✓ Clave guardada de forma segura con Windows DPAPI</value>
+  </data>
+  <data name="AiConfig_KeyNotConfigured_OpenRouter" xml:space="preserve">
+    <value>⚠ Clave de OpenRouter no configurada</value>
+  </data>
+  <data name="AiConfig_KeyNotConfigured_Custom" xml:space="preserve">
+    <value>⚠ Clave de Servidor personalizado no configurada</value>
+  </data>
+  <data name="AiConfig_OpenRouter_Empty_Msg" xml:space="preserve">
+    <value>Introduzca una clave válida de OpenRouter antes de guardar.</value>
+  </data>
+  <data name="AiConfig_OpenRouter_Empty_Title" xml:space="preserve">
+    <value>API Key vacía</value>
+  </data>
+  <data name="AiConfig_OpenRouter_Saved_Msg" xml:space="preserve">
+    <value>Clave de OpenRouter guardada correctamente y cifrada mediante Windows DPAPI.</value>
+  </data>
+  <data name="AiConfig_OpenRouter_Saved_Title" xml:space="preserve">
+    <value>Seguridad DictaMeeting</value>
+  </data>
+  <data name="AiConfig_OpenRouter_Delete_Confirm" xml:space="preserve">
+    <value>¿Está seguro de que desea eliminar la clave de API guardada de OpenRouter?</value>
+  </data>
+  <data name="AiConfig_Custom_Endpoint_Empty_Msg" xml:space="preserve">
+    <value>Introduzca una URL de Endpoint válida para el Servidor personalizado (ej. https://mi-servidor.com/v1).</value>
+  </data>
+  <data name="AiConfig_Custom_Endpoint_Empty_Title" xml:space="preserve">
+    <value>Endpoint requerido</value>
+  </data>
+  <data name="AiConfig_Custom_Model_Empty_Msg" xml:space="preserve">
+    <value>Introduzca el nombre del modelo para el Servidor personalizado (ej. qwen3.8-27b).</value>
+  </data>
+  <data name="AiConfig_Custom_Model_Empty_Title" xml:space="preserve">
+    <value>Modelo requerido</value>
+  </data>
+  <data name="AiConfig_Custom_Saved_Msg" xml:space="preserve">
+    <value>Configuración del Servidor personalizado guardada correctamente.</value>
+  </data>
+  <data name="AiConfig_Custom_Saved_Title" xml:space="preserve">
+    <value>Servidor personalizado</value>
+  </data>
+  <data name="AiConfig_Custom_Delete_Confirm" xml:space="preserve">
+    <value>¿Está seguro de que desea eliminar la clave de API del Servidor personalizado?</value>
+  </data>
+  <data name="AiConfig_Confirm_Delete_Title" xml:space="preserve">
+    <value>Confirmar eliminación</value>
+  </data>
+  <data name="Vocab_Title" xml:space="preserve">
+    <value>Vocabulario y palabras clave</value>
+  </data>
+  <data name="Vocab_Subtitle" xml:space="preserve">
+    <value>Mejora el reconocimiento de nombres, acrónimos y términos específicos.</value>
+  </data>
+  <data name="Vocab_Section_Add" xml:space="preserve">
+    <value>AÑADIR O ACTUALIZAR TÉRMINO</value>
+  </data>
+  <data name="Vocab_Field_Word" xml:space="preserve">
+    <value>Palabra o Acrónimo oficial:</value>
+  </data>
+  <data name="Vocab_Field_Word_Tooltip" xml:space="preserve">
+    <value>Escriba la palabra canónica (ej. Aritz) y pulse Enter para guardar</value>
+  </data>
+  <data name="Vocab_Field_Variants" xml:space="preserve">
+    <value>Variantes / Fonética (sugerida automáticamente):</value>
+  </data>
+  <data name="Vocab_Field_Variants_Tooltip" xml:space="preserve">
+    <value>Variantes separadas por comas. Se autocompletan solas y son editables. Pulse Enter para guardar.</value>
+  </data>
+  <data name="Vocab_Tip_Auto" xml:space="preserve">
+    <value>Las variantes fonéticas se sugieren solas para euskera, castellano y acrónimos.</value>
+  </data>
+  <data name="Vocab_Search_Placeholder" xml:space="preserve">
+    <value>Buscar en el glosario por palabra o variante...</value>
+  </data>
+  <data name="Vocab_Import_Json" xml:space="preserve">
+    <value>Importar JSON</value>
+  </data>
+  <data name="Vocab_Import_Tooltip" xml:space="preserve">
+    <value>Cargar vocabulario desde un archivo JSON externo</value>
+  </data>
+  <data name="Vocab_Export_Json" xml:space="preserve">
+    <value>Exportar JSON</value>
+  </data>
+  <data name="Vocab_Export_Tooltip" xml:space="preserve">
+    <value>Exportar la lista completa de términos a un archivo JSON para compartirlo</value>
+  </data>
+  <data name="Vocab_Save_Button" xml:space="preserve">
+    <value>Guardar</value>
+  </data>
+  <data name="Vocab_Edit_Tooltip" xml:space="preserve">
+    <value>Editar este término en el formulario</value>
+  </data>
+  <data name="Vocab_Delete_Tooltip" xml:space="preserve">
+    <value>Eliminar este término</value>
+  </data>
+  <data name="Vocab_Variants_Prefix" xml:space="preserve">
+    <value>Variantes: </value>
+  </data>
+  <data name="Vocab_Count_Format" xml:space="preserve">
+    <value>{0} términos registrados</value>
+  </data>
+  <data name="Vocab_Msg_EnterWord" xml:space="preserve">
+    <value>Por favor, introduzca una palabra o acrónimo.</value>
+  </data>
+  <data name="Vocab_Msg_Saved" xml:space="preserve">
+    <value>'{0}' guardado con éxito.</value>
+  </data>
+  <data name="Vocab_Msg_Removed" xml:space="preserve">
+    <value>'{0}' eliminado.</value>
+  </data>
+  <data name="Vocab_Msg_ExportSuccess" xml:space="preserve">
+    <value>Vocabulario exportado con éxito a '{0}'.</value>
+  </data>
+  <data name="Vocab_Msg_ExportError" xml:space="preserve">
+    <value>Error al exportar: {0}</value>
+  </data>
+  <data name="Vocab_Msg_ImportSuccess" xml:space="preserve">
+    <value>Vocabulario importado con éxito desde '{0}'.</value>
+  </data>
+  <data name="Vocab_Msg_ImportError" xml:space="preserve">
+    <value>Error al importar: {0}</value>
+  </data>
+  <data name="Vocab_Dialog_ExportTitle" xml:space="preserve">
+    <value>Exportar Vocabulario DictaMeeting</value>
+  </data>
+  <data name="Vocab_Dialog_ImportTitle" xml:space="preserve">
+    <value>Importar Vocabulario a DictaMeeting</value>
+  </data>
+  <data name="Privacy_Title" xml:space="preserve">
+    <value>Privacidad y grabación</value>
+  </data>
+  <data name="Privacy_Section_Storage" xml:space="preserve">
+    <value>Procesamiento y Almacenamiento de Datos</value>
+  </data>
+  <data name="Privacy_Storage_Audio" xml:space="preserve">
+    <value>El audio de las reuniones se procesa y almacena localmente en este equipo.</value>
+  </data>
+  <data name="Privacy_Storage_Transcript" xml:space="preserve">
+    <value>La transcripción y la diarización se realizan localmente.</value>
+  </data>
+  <data name="Privacy_Storage_Diarization" xml:space="preserve">
+    <value>La separación e identificación de interlocutores se realiza localmente.</value>
+  </data>
+  <data name="Privacy_Storage_Ai" xml:space="preserve">
+    <value>El contenido necesario se envía al proveedor seleccionado para generar el acta.</value>
+  </data>
+  <data name="Privacy_Storage_Local_Badge" xml:space="preserve">
+    <value>✓ Local</value>
+  </data>
+  <data name="Privacy_Storage_Provider_Badge" xml:space="preserve">
+    <value>⚠ Según proveedor</value>
+  </data>
+  <data name="Privacy_Storage_AiProvider_Label" xml:space="preserve">
+    <value>Proveedor de IA para actas: </value>
+  </data>
+  <data name="Privacy_Notice_Toggle" xml:space="preserve">
+    <value>Mostrar recordatorio antes de iniciar una grabación</value>
+  </data>
+  <data name="Privacy_Disclaimer" xml:space="preserve">
+    <value>DictaMeeting es una herramienta de grabación y procesamiento de reuniones. El usuario es responsable de utilizarla de acuerdo con la normativa y las políticas aplicables a su organización.</value>
+  </data>
+  <data name="Privacy_Item_Recording" xml:space="preserve">
+    <value>Grabación</value>
+  </data>
+  <data name="Privacy_Item_Transcript" xml:space="preserve">
+    <value>Transcripción</value>
+  </data>
+  <data name="Privacy_Item_Diarization" xml:space="preserve">
+    <value>Diarización</value>
+  </data>
+  <data name="Privacy_Item_Minutes" xml:space="preserve">
+    <value>Generación del acta</value>
+  </data>
+  <data name="About_Title" xml:space="preserve">
+    <value>Acerca de DictaMeeting</value>
+  </data>
+  <data name="About_Subtitle" xml:space="preserve">
+    <value>DictaMeeting • Transcripción local y privada • Creado por Aritz Villodas</value>
+  </data>
+  <data name="About_Description" xml:space="preserve">
+    <value>DictaMeeting está diseñado para mantener el procesamiento de audio y transcripción en el equipo siempre que sea posible, permitiendo conectar opcionalmente servicios de IA externos para la generación de actas.</value>
+  </data>
+  <data name="About_Created_By" xml:space="preserve">
+    <value>Creado por</value>
+  </data>
+  <data name="About_Project" xml:space="preserve">
+    <value>Proyecto</value>
+  </data>
+  <data name="About_Tech_Title" xml:space="preserve">
+    <value>Tecnologías</value>
+  </data>
+  <data name="About_Tech_License_Notice" xml:space="preserve">
+    <value>DictaMeeting utiliza software y modelos open source de distintos proyectos y comunidades.</value>
+  </data>
+  <data name="About_GitHub_Tooltip" xml:space="preserve">
+    <value>Abrir repositorio en GitHub en el navegador</value>
+  </data>
+  <data name="About_Tech_App" xml:space="preserve">
+    <value>Aplicación de escritorio</value>
+  </data>
+  <data name="About_Tech_UI" xml:space="preserve">
+    <value>Interfaz de usuario</value>
+  </data>
+  <data name="About_Tech_Inference" xml:space="preserve">
+    <value>Inferencia local</value>
+  </data>
+  <data name="About_Tech_Speech" xml:space="preserve">
+    <value>Reconocimiento de voz</value>
+  </data>
+  <data name="About_Tech_Qwen" xml:space="preserve">
+    <value>Transcripción multilingüe avanzada</value>
+  </data>
+  <data name="About_Tech_VAD" xml:space="preserve">
+    <value>Detección de actividad por voz</value>
+  </data>
+  <data name="About_Tech_Diarization" xml:space="preserve">
+    <value>Diarización y separación de interlocutores</value>
+  </data>
+  <data name="About_Tech_AudioCapture" xml:space="preserve">
+    <value>Captura de audio WASAPI</value>
+  </data>
+  <data name="Acta_Modal_Title" xml:space="preserve">
+    <value>Acta Ejecutiva de la Reunión</value>
+  </data>
+  <data name="Acta_Check_Participants" xml:space="preserve">
+    <value>Participantes</value>
+  </data>
+  <data name="Acta_Check_Decisions" xml:space="preserve">
+    <value>Decisiones</value>
+  </data>
+  <data name="Acta_Check_Actions" xml:space="preserve">
+    <value>Acciones</value>
+  </data>
+  <data name="Acta_Check_Pending" xml:space="preserve">
+    <value>Pendientes</value>
+  </data>
+  <data name="Acta_Check_Impersonal" xml:space="preserve">
+    <value>Acta impersonal</value>
+  </data>
+  <data name="Acta_Button_Generate" xml:space="preserve">
+    <value>⚡ Generar Acta con IA</value>
+  </data>
+  <data name="Acta_Button_Copy" xml:space="preserve">
+    <value>📋 Copiar al Portapapeles</value>
+  </data>
+  <data name="Acta_Button_SaveMd" xml:space="preserve">
+    <value>💾 Guardar Acta (.md)</value>
+  </data>
+  <data name="Acta_Button_Folder" xml:space="preserve">
+    <value>📁 Carpeta Reunión</value>
+  </data>
+  <data name="Acta_Level_Detail" xml:space="preserve">
+    <value>Nivel de Detalle</value>
+  </data>
+  <data name="Acta_Language_Label" xml:space="preserve">
+    <value>Idioma</value>
+  </data>
+  <data name="Notice_Title" xml:space="preserve">
+    <value>Antes de comenzar</value>
+  </data>
+  <data name="Notice_Reminder" xml:space="preserve">
+    <value>Recuerda informar a los participantes antes de comenzar a grabar.</value>
+  </data>
+  <data name="Notice_Text" xml:space="preserve">
+    <value>Asegúrate de que los participantes han sido informados de que esta reunión será grabada y de que el uso de la grabación es adecuado a la normativa y políticas aplicables.</value>
+  </data>
+  <data name="Notice_DontShowAgain" xml:space="preserve">
+    <value>No volver a mostrar este aviso</value>
+  </data>
+  <data name="Notice_Continue" xml:space="preserve">
+    <value>Continuar a DictaMeeting</value>
+  </data>
+  <data name="Notice_Start" xml:space="preserve">
+    <value>Comenzar</value>
+  </data>
+  <data name="Notice_Cancel" xml:space="preserve">
+    <value>Cancelar</value>
+  </data>
+  <data name="Onboarding_Title" xml:space="preserve">
+    <value>Modelos básicos</value>
+  </data>
+  <data name="Onboarding_Subtitle" xml:space="preserve">
+    <value>Descarga los modelos recomendados para empezar a usar DictaMeeting.</value>
+  </data>
+  <data name="Onboarding_Download_Button" xml:space="preserve">
+    <value>Descargar Modelo Recomendado</value>
+  </data>
+  <data name="Onboarding_Skip_Button" xml:space="preserve">
+    <value>Ahora no</value>
+  </data>
+  <data name="Onboarding_Skip_Tooltip" xml:space="preserve">
+    <value>Cerrar el asistente. Los modelos podrán descargarse más tarde desde Ajustes.</value>
+  </data>
+  <data name="Onboarding_ViewAll_Button" xml:space="preserve">
+    <value>Ver Todos los Modelos</value>
+  </data>
+  <data name="Onboarding_Location_Label" xml:space="preserve">
+    <value>Ubicación:</value>
+  </data>
+  <data name="Onboarding_Available_Badge" xml:space="preserve">
+    <value>✓ Disponible</value>
+  </data>
+  <data name="Onboarding_Pending_Badge" xml:space="preserve">
+    <value>↓ Pendiente</value>
+  </data>
+  <data name="Onboarding_Attention_Title" xml:space="preserve">
+    <value>⚠️ Atención</value>
+  </data>
+  <data name="Onboarding_Retry_Button" xml:space="preserve">
+    <value>Reintentar descarga</value>
+  </data>
+  <data name="Onboarding_Continue_Button" xml:space="preserve">
+    <value>Continuar a DictaMeeting</value>
+  </data>
+  <data name="Onboarding_Download_One" xml:space="preserve">
+    <value>Descargar 1 modelo</value>
+  </data>
+  <data name="Onboarding_Download_Many" xml:space="preserve">
+    <value>Descargar {0} modelos</value>
+  </data>
+  <data name="Onboarding_Download_Default" xml:space="preserve">
+    <value>Descargar modelos</value>
+  </data>
+  <data name="Role_Live_Summary" xml:space="preserve">
+    <value>Resumen en vivo</value>
+  </data>
+  <data name="Role_Live_Transcription" xml:space="preserve">
+    <value>Transcripción en vivo</value>
+  </data>
+  <data name="Role_Final_Transcription" xml:space="preserve">
+    <value>Transcripción final</value>
+  </data>
+  <data name="Hardware_Summary_Format" xml:space="preserve">
+    <value>CPU con {0} núcleos y {1:F0} GB de RAM. Recomendado en vivo: {2} | Final: {3}.</value>
+  </data>
+  <data name="Import_Audio_Title" xml:space="preserve">
+    <value>Importar Archivo de Audio</value>
+  </data>
+  <data name="Import_Audio_Desc" xml:space="preserve">
+    <value>Carga un archivo de audio para crear una nueva reunión y procesar la transcripción y separación de interlocutores en segundo plano.</value>
+  </data>
+  <data name="Import_Audio_Drop" xml:space="preserve">
+    <value>Arrastra y suelta tu archivo de audio aquí</value>
+  </data>
+  <data name="Import_Audio_OrBrowse" xml:space="preserve">
+    <value>o haz clic en cualquier lugar para examinar archivos</value>
+  </data>
+  <data name="Import_Audio_Formats" xml:space="preserve">
+    <value>Formatos admitidos: WAV, MP3, M4A, FLAC, OGG, WMA, AAC</value>
+  </data>
+  <data name="Import_Audio_Supported" xml:space="preserve">
+    <value>Formatos admitidos:</value>
+  </data>
+  <data name="Import_Audio_Button" xml:space="preserve">
+    <value>Importar y Procesar</value>
+  </data>
+  <data name="Import_Audio_Change" xml:space="preserve">
+    <value>Cambiar</value>
+  </data>
+  <data name="Import_Audio_Note" xml:space="preserve">
+    <value>⚙️ Se procesará con el modelo final configurado y los ajustes actuales de idioma.</value>
+  </data>
+  <data name="Import_Transcript_Title" xml:space="preserve">
+    <value>Importar Transcripción</value>
+  </data>
+  <data name="Import_Transcript_Desc" xml:space="preserve">
+    <value>Carga un archivo de texto con la transcripción de una reunión. La reunión se creará directamente en el historial sin procesar audio.</value>
+  </data>
+  <data name="Import_Transcript_Drop" xml:space="preserve">
+    <value>Arrastra y suelta tu archivo de transcripción aquí</value>
+  </data>
+  <data name="Import_Transcript_Notice" xml:space="preserve">
+    <value>La transcripción se importará tal cual. Si contiene speakers y timestamps, se conservarán. No se ejecutará Whisper ni diarización.</value>
+  </data>
+  <data name="Import_Transcript_Button" xml:space="preserve">
+    <value>Importar Transcripción</value>
+  </data>
+  <data name="Import_Transcript_Change" xml:space="preserve">
+    <value>Cambiar</value>
+  </data>
+  <data name="Common_Accept" xml:space="preserve">
+    <value>Aceptar</value>
+  </data>
+  <data name="Common_Cancel" xml:space="preserve">
+    <value>Cancelar</value>
+  </data>
+  <data name="Common_Close" xml:space="preserve">
+    <value>Cerrar</value>
+  </data>
+  <data name="Common_Save" xml:space="preserve">
+    <value>Guardar</value>
+  </data>
+  <data name="Common_Delete" xml:space="preserve">
+    <value>Eliminar</value>
+  </data>
+  <data name="Common_Copy" xml:space="preserve">
+    <value>Copiar</value>
+  </data>
+  <data name="Common_Copied" xml:space="preserve">
+    <value>Copiado</value>
+  </data>
+  <data name="Common_Download" xml:space="preserve">
+    <value>Descargar</value>
+  </data>
+  <data name="Common_Refresh" xml:space="preserve">
+    <value>Actualizar</value>
+  </data>
+  <data name="Common_Browse" xml:space="preserve">
+    <value>Examinar archivo...</value>
+  </data>
+  <data name="Common_Error" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="Common_Warning" xml:space="preserve">
+    <value>Aviso</value>
+  </data>
+  <data name="Common_Success" xml:space="preserve">
+    <value>Éxito</value>
+  </data>
+  <data name="Common_Information" xml:space="preserve">
+    <value>Información</value>
+  </data>
+  <data name="Common_Understood" xml:space="preserve">
+    <value>Entendido</value>
+  </data>
+  <data name="Common_Folder" xml:space="preserve">
+    <value>Carpeta Reunión</value>
+  </data>
+  <data name="Common_OpenFolder" xml:space="preserve">
+    <value>Abrir Carpeta</value>
+  </data>
+  <data name="Common_Export" xml:space="preserve">
+    <value>Exportar</value>
+  </data>
+  <data name="Common_Updating" xml:space="preserve">
+    <value>⚡ Actualizando...</value>
+  </data>
+  <data name="Common_Model_Prefix" xml:space="preserve">
+    <value>Modelo: </value>
+  </data>
+  <data name="Common_Workspace_Meeting" xml:space="preserve">
+    <value>Workspace de Reunión</value>
+  </data>
+  <data name="Common_Auto_Recommended" xml:space="preserve">
+    <value>Automático (Recomendado por Hardware)</value>
+  </data>
+  <data name="Common_Folder_NotFound_Title" xml:space="preserve">
+    <value>Carpeta no encontrada</value>
+  </data>
+  <data name="Common_Folder_NotFound_Msg" xml:space="preserve">
+    <value>La carpeta de reuniones aún no existe:
+{0}</value>
+  </data>
+  <data name="Common_Clipboard_Error" xml:space="preserve">
+    <value>No se pudo copiar al portapapeles: {0}</value>
+  </data>
+  <data name="Common_Audio_Device_Warning" xml:space="preserve">
+    <value>Aviso de Dispositivo de Audio</value>
+  </data>
+  <data name="Common_Active_Recording_Title" xml:space="preserve">
+    <value>Grabación en curso</value>
+  </data>
+  <data name="Common_Active_Recording_Msg" xml:space="preserve">
+    <value>Hay una reunión en grabación activa. ¿Desea detenerla antes de abrir esta reunión?</value>
+  </data>
+  <data name="Common_Participants_Count" xml:space="preserve">
+    <value>{0} participantes</value>
+  </data>
+  <data name="Common_Terms_Count" xml:space="preserve">
+    <value>{0} términos</value>
+  </data>
+  <data name="Common_Change" xml:space="preserve">
+    <value>Cambiar</value>
+  </data>
+  <data name="Vocab_Save_Tooltip" xml:space="preserve">
+    <value>Guardar término y sus variantes fonéticas</value>
+  </data>
+  <data name="Msg_Meeting_Active_Title" xml:space="preserve">
+    <value>Reunión en Curso</value>
+  </data>
+  <data name="Msg_Meeting_Active_NewSession" xml:space="preserve">
+    <value>Hay una reunión en grabación activa o inicializándose. Debe esperar o detenerla antes de iniciar una nueva sesión.</value>
+  </data>
+  <data name="Msg_Meeting_Active_ImportAudio" xml:space="preserve">
+    <value>Hay una reunión en grabación activa o inicializándose. Debe esperar o detenerla antes de importar audio.</value>
+  </data>
+  <data name="Msg_Meeting_Active_ImportTranscript" xml:space="preserve">
+    <value>Hay una reunión en grabación activa o inicializándose. Debe esperar o detenerla antes de importar una transcripción.</value>
+  </data>
+  <data name="Msg_Import_Audio_Error_Title" xml:space="preserve">
+    <value>Error de Importación</value>
+  </data>
+  <data name="Msg_Import_Audio_Error" xml:space="preserve">
+    <value>Error al importar el archivo de audio: {0}</value>
+  </data>
+  <data name="Msg_Import_Transcript_Invalid_Title" xml:space="preserve">
+    <value>Archivo no válido</value>
+  </data>
+  <data name="Msg_Import_Transcript_Error" xml:space="preserve">
+    <value>Error al importar la transcripción: {0}</value>
+  </data>
+  <data name="Msg_Meeting_Start_Error_Title" xml:space="preserve">
+    <value>Error al Iniciar</value>
+  </data>
+  <data name="Msg_Meeting_Start_Error" xml:space="preserve">
+    <value>Ocurrió un error al iniciar la reunión: {0}</value>
+  </data>
+  <data name="Msg_Meeting_Reprocess_NoAudio_Title" xml:space="preserve">
+    <value>Audio no disponible</value>
+  </data>
+  <data name="Msg_Meeting_Reprocess_NoAudio" xml:space="preserve">
+    <value>No se encontró el archivo de audio guardado en disco para esta reunión. No es posible reprocesar.</value>
+  </data>
+  <data name="Msg_Meeting_Folder_NotExists" xml:space="preserve">
+    <value>La carpeta de la reunión aún no existe:
+{0}</value>
+  </data>
+  <data name="Msg_OpenRouter_Empty_Title" xml:space="preserve">
+    <value>API Key vacía</value>
+  </data>
+  <data name="Msg_OpenRouter_Empty" xml:space="preserve">
+    <value>Introduzca una clave válida de OpenRouter antes de guardar.</value>
+  </data>
+  <data name="Msg_OpenRouter_Saved_Title" xml:space="preserve">
+    <value>Seguridad DictaMeeting</value>
+  </data>
+  <data name="Msg_OpenRouter_Saved" xml:space="preserve">
+    <value>Clave de OpenRouter guardada correctamente y cifrada mediante Windows DPAPI.</value>
+  </data>
+  <data name="Msg_OpenRouter_Delete_Confirm_Title" xml:space="preserve">
+    <value>¿Eliminar clave?</value>
+  </data>
+  <data name="Msg_OpenRouter_Delete_Confirm" xml:space="preserve">
+    <value>¿Desea eliminar la clave guardada de OpenRouter?</value>
+  </data>
+  <data name="Msg_CustomServer_Endpoint_Required_Title" xml:space="preserve">
+    <value>Endpoint requerido</value>
+  </data>
+  <data name="Msg_CustomServer_Endpoint_Required" xml:space="preserve">
+    <value>Introduzca una URL de Endpoint válida para el Servidor personalizado (ej. https://mi-servidor.com/v1).</value>
+  </data>
+  <data name="Msg_CustomServer_Model_Required_Title" xml:space="preserve">
+    <value>Modelo requerido</value>
+  </data>
+  <data name="Msg_CustomServer_Model_Required" xml:space="preserve">
+    <value>Introduzca el nombre del modelo para el Servidor personalizado (ej. qwen3.8-27b).</value>
+  </data>
+  <data name="Msg_CustomServer_Saved_Title" xml:space="preserve">
+    <value>Servidor personalizado</value>
+  </data>
+  <data name="Msg_CustomServer_Saved" xml:space="preserve">
+    <value>Configuración del Servidor personalizado guardada correctamente.</value>
+  </data>
+  <data name="Msg_CustomServer_Delete_Confirm_Title" xml:space="preserve">
+    <value>¿Eliminar clave?</value>
+  </data>
+  <data name="Msg_CustomServer_Delete_Confirm" xml:space="preserve">
+    <value>¿Desea eliminar la clave guardada del Servidor personalizado?</value>
+  </data>
+  <data name="Msg_Model_Location_Unavailable_Title" xml:space="preserve">
+    <value>Ubicación No Disponible</value>
+  </data>
+  <data name="Msg_Model_Location_Unavailable" xml:space="preserve">
+    <value>La ubicación configurada ({0}) no está disponible. Conecte la unidad o seleccione otra ubicación antes de descargar.</value>
+  </data>
+  <data name="Msg_Model_Downloaded_Ready_Title" xml:space="preserve">
+    <value>DictaMeeting — Modelo Listo</value>
+  </data>
+  <data name="Msg_Model_Downloaded_Ready" xml:space="preserve">
+    <value>El modelo {0} se ha descargado correctamente y está listo para transcribir.</value>
+  </data>
+  <data name="Msg_Model_Download_Error_Title" xml:space="preserve">
+    <value>Error de Descarga</value>
+  </data>
+  <data name="Msg_Model_Download_Error" xml:space="preserve">
+    <value>Error al descargar el modelo {0}: {1}</value>
+  </data>
+  <data name="Msg_Model_Delete_Confirm_Title" xml:space="preserve">
+    <value>Eliminar Modelo Local</value>
+  </data>
+  <data name="Msg_Model_Delete_Confirm" xml:space="preserve">
+    <value>¿Está seguro de que desea eliminar el archivo local del modelo '{0}' ({1}) para liberar espacio en disco?</value>
+  </data>
+  <data name="Msg_Model_Folder_Invalid_Title" xml:space="preserve">
+    <value>Ubicación No Válida</value>
+  </data>
+  <data name="Msg_Model_Folder_Invalid_Default" xml:space="preserve">
+    <value>La carpeta seleccionada no es válida.</value>
+  </data>
+  <data name="Msg_Model_Folder_Configured_Title" xml:space="preserve">
+    <value>Ubicación de Modelos</value>
+  </data>
+  <data name="Msg_Model_Folder_Configured" xml:space="preserve">
+    <value>La ubicación de los modelos se ha configurado en:
+{0}</value>
+  </data>
+  <data name="Msg_Model_Change_Error_Title" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="Msg_Model_Change_Error" xml:space="preserve">
+    <value>Error al cambiar la ubicación:
+{0}</value>
+  </data>
+  <data name="Msg_Model_Change_Without_Move_Title" xml:space="preserve">
+    <value>Cambiar sin mover</value>
+  </data>
+  <data name="Msg_Model_Change_Without_Move" xml:space="preserve">
+    <value>Los modelos existentes permanecerán en la ubicación anterior y no se copiarán a la nueva carpeta.
+
+¿Desea cambiar la ubicación de todos modos?</value>
+  </data>
+  <data name="Msg_Model_Migrate_Success_Title" xml:space="preserve">
+    <value>Migración Completada</value>
+  </data>
+  <data name="Msg_Model_Migrate_Success" xml:space="preserve">
+    <value>Todos los modelos han sido migrados con éxito y verificados en la nueva ubicación:
+{0}</value>
+  </data>
+  <data name="Msg_Model_Migrate_Cancelled_Title" xml:space="preserve">
+    <value>Migración Cancelada</value>
+  </data>
+  <data name="Msg_Model_Migrate_Cancelled" xml:space="preserve">
+    <value>La migración ha sido cancelada. Los modelos originales permanecen intactos en la ubicación anterior y no se ha modificado la configuración.</value>
+  </data>
+  <data name="Msg_Audio_Device_Notice_Title" xml:space="preserve">
+    <value>Aviso de Dispositivo de Audio</value>
+  </data>
+</root>

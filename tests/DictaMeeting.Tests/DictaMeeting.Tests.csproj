@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.2" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.30.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\DictaMeeting.Meetings\DictaMeeting.Meetings.csproj" />
+    <ProjectReference Include="..\..\src\DictaMeeting.Audio\DictaMeeting.Audio.csproj" />
+    <ProjectReference Include="..\..\src\DictaMeeting.Transcription\DictaMeeting.Transcription.csproj" />
+    <ProjectReference Include="..\..\src\DictaMeeting.Diarization\DictaMeeting.Diarization.csproj" />
+    <ProjectReference Include="..\..\src\DictaMeeting.AI\DictaMeeting.AI.csproj" />
+    <ProjectReference Include="..\..\src\DictaMeeting.Infrastructure\DictaMeeting.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\DictaMeeting.App\DictaMeeting.App.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)..\..\models\silero\*.onnx">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>models\silero\%(Filename)%(Extension)</Link>
+      <Visible>true</Visible>
+    </None>
+    <None Include="$(MSBuildThisFileDirectory)..\..\models\punctuation\**\*.*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>models\punctuation\%(RecursiveDir)%(Filename)%(Extension)</Link>
+      <Visible>true</Visible>
+    </None>
+  </ItemGroup>
+
+</Project>

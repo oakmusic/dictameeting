@@ -1,0 +1,61 @@
+# Visual Studio / Rider / VS Code
+.vs/
+.idea/
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Build artifacts and caches
+bin/
+obj/
+publish/
+Publish/
+TestResults/
+[Bb]uild/
+[Dd]ist/
+dist/installer/
+packages/
+*.nupkg
+*.zip
+
+# Temporary data, scratch, logs and meetings
+temp/
+Temp/
+Logs/
+logs/
+*.log
+Meetings/
+meetings/
+**/Meetings/
+**/meetings/
+Recordings/
+recordings/
+**/Recordings/
+**/recordings/
+
+# Audio files (never commit user recordings)
+*.wav
+*.mp3
+*.opus
+*.m4a
+*.aac
+*.flac
+
+# Local AI Models and large artifacts
+/models/
+/Models/
+!src/**/Models/
+*.bin
+*.onnx
+*.safetensors
+*.pt
+*.gguf
+
+# Secrets, environment and local settings
+.env
+*.local.json
+secrets.json

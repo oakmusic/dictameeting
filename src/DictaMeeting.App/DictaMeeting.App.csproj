@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\DictaMeeting.Meetings\DictaMeeting.Meetings.csproj" />
+    <ProjectReference Include="..\DictaMeeting.Audio\DictaMeeting.Audio.csproj" />
+    <ProjectReference Include="..\DictaMeeting.Transcription\DictaMeeting.Transcription.csproj" />
+    <ProjectReference Include="..\DictaMeeting.Diarization\DictaMeeting.Diarization.csproj" />
+    <ProjectReference Include="..\DictaMeeting.AI\DictaMeeting.AI.csproj" />
+    <ProjectReference Include="..\DictaMeeting.Infrastructure\DictaMeeting.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.12" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="10.0.12" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>DictaMeeting</AssemblyName>
+    <Product>DictaMeeting</Product>
+    <Title>DictaMeeting — Transcriptor Local de Reuniones</Title>
+    <Description>Grabación, transcripción ASR local, diarización de interlocutores y actas ejecutivas con IA para Windows.</Description>
+    <Version>1.5.2</Version>
+    <AssemblyVersion>1.5.2.0</AssemblyVersion>
+    <FileVersion>1.5.2.0</FileVersion>
+    <InformationalVersion>1.5.2</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <NeutralLanguage>es</NeutralLanguage>
+    <Authors>Aritz Villodas</Authors>
+    <Company>Aritz Villodas</Company>
+    <Copyright>© 2026 Aritz Villodas. Todos los derechos reservados.</Copyright>
+    <ApplicationIcon>Resources\app.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="Resources\app.ico" />
+    <Resource Include="Resources\app.png" />
+    <Resource Include="Assets\splash-background.png" />
+    <Resource Include="Assets\microphone-icon.png" />
+    <Resource Include="Assets\dictameeting-logo.png" />
+    <Resource Include="Assets\byaritz-logo.png" />
+  </ItemGroup>
+
+</Project>
