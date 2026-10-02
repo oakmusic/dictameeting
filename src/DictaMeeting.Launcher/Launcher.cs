@@ -9,8 +9,8 @@ using System.Windows.Forms;
 [assembly: AssemblyDescription("DictaMeeting — Transcriptor Local de Reuniones")]
 [assembly: AssemblyCompany("Aritz Villodas")]
 [assembly: AssemblyCopyright("© 2026 Aritz Villodas. Todos los derechos reservados.")]
-[assembly: AssemblyVersion("1.5.2.0")]
-[assembly: AssemblyFileVersion("1.5.2.0")]
+[assembly: AssemblyVersion("1.5.4.0")]
+[assembly: AssemblyFileVersion("1.5.4.0")]
 
 namespace DictaMeeting.Launcher
 {

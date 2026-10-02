@@ -460,6 +460,10 @@ public class GenerateResourcesHelper
             ["Acta_Button_Folder"] = ("📁 Carpeta Reunión", "📁 Meeting Folder"),
             ["Acta_Level_Detail"] = ("Nivel de Detalle", "Detail Level"),
             ["Acta_Language_Label"] = ("Idioma", "Language"),
+            ["Acta_Detail_Breve"] = ("Breve", "Brief"),
+            ["Acta_Detail_Normal"] = ("Normal", "Normal"),
+            ["Acta_Detail_Detallada"] = ("Detallada", "Detailed"),
+            ["Acta_Detail_Exhaustiva"] = ("Exhaustiva", "Comprehensive"),
 
             // Pre-recording Reminder
             ["Notice_Title"] = ("Antes de comenzar", "Before you begin"),

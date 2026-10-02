@@ -167,7 +167,7 @@ public class LiveSummaryCoordinatorTests
         Assert.Equal(1, mockService.GenerateCount);
 
         // Completar la primera inferencia
-        tcs.SetResult("Resumen completado");
+        tcs.SetResult("Resumen completado sobre la prueba de concurrencia de inferencias en paralelo.");
         await task1;
 
         Assert.False(coordinator.IsGenerating);

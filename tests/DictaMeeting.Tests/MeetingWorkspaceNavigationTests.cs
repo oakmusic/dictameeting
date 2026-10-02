@@ -316,7 +316,7 @@ public class MeetingWorkspaceNavigationTests
         Assert.True(vm.HasSummary);
         Assert.Equal("Resumen de prueba.", vm.SummaryPreview);
         Assert.True(vm.HasActa);
-        Assert.Contains("Acta", vm.ActaStatusText);
+        Assert.Equal(DictaMeeting.App.Services.LocalizationManager.Instance["History_Acta_Status_Done"], vm.ActaStatusText);
         Assert.Equal("Aritz, Iker", vm.ParticipantsPreviewText);
         Assert.Equal(2, vm.PreviewSegments.Count);
         Assert.Contains("Primera frase del preview", vm.TranscriptPreview);

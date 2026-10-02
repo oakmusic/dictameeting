@@ -52,11 +52,11 @@ Welcome to the **DictaMeeting User Guide**, the native Windows desktop applicati
 
 DictaMeeting is distributed in two editions for Windows x64:
 
-- **Official Setup (`DictaMeeting-v1.5.2-Setup.exe`)**:
+- **Official Setup (`DictaMeeting-v1.5.4-Setup.exe`)**:
   - Requires no administrator privileges (installs cleanly into the current user's profile).
   - Creates Start Menu and Desktop shortcuts.
   - Offers a clean uninstaller accessible via Windows *Settings > Apps*.
-- **Portable Package (`DictaMeeting-v1.5.2-win-x64-portable.zip`)**:
+- **Portable Package (`DictaMeeting-v1.5.4-win-x64-portable.zip`)**:
   - Zero-install required.
   - Extract the ZIP archive to any directory or portable drive and double-click `DictaMeeting.exe`.
 

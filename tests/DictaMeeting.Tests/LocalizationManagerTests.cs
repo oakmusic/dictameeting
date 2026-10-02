@@ -22,6 +22,8 @@ public class LocalizationManagerTests
     public void LocalizationManager_SwitchToEnglish_UpdatesCultureAndNotifies()
     {
         var manager = LocalizationManager.Instance;
+        manager.SetLanguage("es");
+
         bool notified = false;
         bool itemNotified = false;
 

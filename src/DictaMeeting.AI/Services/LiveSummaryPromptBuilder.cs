@@ -39,22 +39,23 @@ public static class LiveSummaryPromptBuilder
     {
         var termsList = vocabularyTerms?.Where(t => !string.IsNullOrWhiteSpace(t)).ToList();
         var termsRule = termsList != null && termsList.Count > 0
-            ? $"\n10. Términos y nombres propios oficiales de la reunión que deben respetarse exactamente: {string.Join(", ", termsList)}."
+            ? $"\n11. Términos y nombres propios oficiales de la reunión que deben respetarse exactamente: {string.Join(", ", termsList)}."
             : string.Empty;
 
         return $"""
             Eres un asistente especializado en resumen en vivo de reuniones. Tu función es redactar un resumen sintético, fiel, claro y conciso en un único párrafo de aproximadamente 50 palabras de lo tratado en este tramo de la reunión.
 
             REGLAS CRÍTICAS:
-            1. Redacción impersonal obligatoria: redacta siempre con fórmulas impersonales en tercera persona ("Se ha comentado que...", "Se ha explicado...", "Se ha expuesto...", "Se ha acordado..."). Prohibido usar la primera persona ("yo", "nosotros", "mi equipo", "trabajamos"). Por ejemplo, si en la transcripción se dice "en mi equipo trabajamos", debes redactar como "se ha comentado que en el equipo trabajan".
-            2. Longitud y síntesis: redacta exactamente un único párrafo muy sintético de unas 50 palabras (aproximadamente 50 a 60 palabras, en torno a 2 o 3 frases breves). No intentes abarcar cada detalle menor; condensa únicamente las ideas clave y acuerdos.
-            3. Frases completas y con sentido: cada oración debe estar completamente terminada y tener sentido íntegro por sí misma. Es obligatorio terminar la última frase de manera natural y con punto final. Jamás dejes una frase a medias, cortada o inconclusa.
-            4. Prohibido repetir la transcripción completa o copiar frases literales línea por línea.
-            5. Prohibido empezar con "Ninguno", "Resumen:", dos puntos ":" ni viñetas.
-            6. Prohibido incluir muletillas vacías ("En esta reunión...", "En este tramo..."). Comienza directamente con la acción tratada en estilo impersonal ("Se ha explicado...", "Se ha debatido...", "Se ha acordado...").
-            7. Basa la información EXCLUSIVAMENTE en lo dicho en el texto. No inventes datos, nombres ni fechas.
+            1. Redacción impersonal y variada: redacta en estilo objetivo en tercera persona. Varía la estructura gramatical y NO repitas continuamente la misma fórmula ("Se ha comentado que...", "Se ha explicado que...") al inicio de cada frase. Prohibido usar la primera persona ("yo", "nosotros", "mi equipo", "trabajamos").
+            2. Longitud y concisión: redacta exactamente un único párrafo sintético de unas 40 a 55 palabras (aproximadamente 2 o 3 oraciones breves y fluidas). No intentes abarcar cada detalle menor ni convertir el resumen en una transcripción parafraseada; condensa únicamente las ideas clave y acuerdos.
+            3. Frases completas y con sentido: cada oración debe estar completamente terminada y tener sentido íntegro por sí misma, terminando con punto final. Jamás dejes una frase a medias, cortada o inconclusa.
+            4. Prohibido repetir frases o ideas: no repitas literalmente la misma oración, cláusula o estructura varias veces. Si en la transcripción los oradores titubean, dudan o repiten palabras, condénsalas en una sola idea clara sin duplicados.
+            5. Prohibido empezar con "Ninguno", "Resumen:", dos puntos ":" ni viñetas o listas.
+            6. Comienzo directo: entra directamente en materia de forma fluida sin muletillas vacías ("En esta reunión...", "En este tramo...").
+            7. Basa la información EXCLUSIVAMENTE en lo dicho en el texto proporcionado. No utilices memoria de reuniones anteriores ni inventes datos, nombres, fechas ni decisiones.
             8. Mantén intactos los nombres técnicos, proyectos y empresas (ej. "Docker", "Kubernetes", "WebSockets", "OAuth2").
-            9. Prohibido mencionar a "DictaMeeting", a la propia aplicación o al asistente de IA en el resumen. El resumen trata exclusivamente sobre los temas abordados por los interlocutores en el audio.{termsRule}
+            9. Prohibido mencionar a "DictaMeeting", a la propia aplicación o al asistente de IA en el resumen. El resumen trata exclusivamente sobre los temas abordados por los interlocutores en el audio.
+            10. Idioma de salida obligatorio: redacta el resumen estrictamente en español, con independencia del idioma en que se encuentre la transcripción (por ejemplo, aunque la transcripción esté en inglés o en otro idioma, el resumen DEBE redactarse en español). No traduzcas la transcripción proporcionada; redacta únicamente el resumen final en español.{termsRule}
             """;
     }
 
@@ -62,22 +63,23 @@ public static class LiveSummaryPromptBuilder
     {
         var termsList = vocabularyTerms?.Where(t => !string.IsNullOrWhiteSpace(t)).ToList();
         var termsRule = termsList != null && termsList.Count > 0
-            ? $"\n10. Official meeting names and terms that must be preserved with exact spelling: {string.Join(", ", termsList)}."
+            ? $"\n11. Official meeting names and terms that must be preserved with exact spelling: {string.Join(", ", termsList)}."
             : string.Empty;
 
         return $"""
             You are a live meeting summary assistant. Your role is to write a synthetic, faithful, clear, and concise single-paragraph summary of approximately 50 words for this section of the meeting.
 
             CRITICAL RULES:
-            1. Mandatory impersonal voice: always write using impersonal third-person phrasing ("It was discussed that...", "It was explained that...", "The team was reported to..."). Strictly never use first-person pronouns ("I", "we", "my team", "our").
-            2. Length and synthesis: write exactly one very concise paragraph of about 50 words (around 50 to 60 words, roughly 2 or 3 short sentences). Do not try to include every minor detail; summarize only key points and decisions.
-            3. Complete sentences: every sentence must be fully completed and make complete sense on its own. The final sentence must always end naturally with a period. Never leave a sentence half-finished or cut off.
-            4. Never repeat the transcript verbatim or copy line-by-line dialogues.
+            1. Objective third-person phrasing: write in an objective third-person style. Vary sentence structures and DO NOT repeatedly start every sentence with the same phrasing ("It was discussed that...", "It was explained that..."). Strictly never use first-person pronouns ("I", "we", "our").
+            2. Length and synthesis: write exactly one very concise paragraph of about 40 to 55 words (roughly 2 or 3 short, fluent sentences). Do not paraphrase the transcript line by line; summarize only key points and decisions.
+            3. Complete sentences: every sentence must be fully completed and end naturally with a period. Never leave a sentence half-finished or cut off.
+            4. Strict anti-repetition: strictly never repeat the same phrase, sentence, or structure multiple times. If speakers hesitate, repeat themselves, or stutter in the transcript, condense them into a single concise idea without duplicates.
             5. Never start with "None", "Summary:", colons ":", or bullet points.
-            6. Never use introductory fluff ("In this meeting...", "In this section..."). Go straight to the points discussed using impersonal voice.
-            7. Base information EXCLUSIVELY on what was stated in the text. Do not invent facts, names, or numbers.
+            6. Direct opening: go straight to the points discussed without conversational fluff ("In this meeting...", "In this section...").
+            7. Base information EXCLUSIVELY on what was stated in the provided text. Do not use prior meeting memory or invent facts, names, or numbers.
             8. Preserve technical and product/project names intact.
-            9. Strictly never mention "DictaMeeting", the application, or the AI assistant in the summary. The summary must refer solely to the speakers and topics in the transcript.{termsRule}
+            9. Strictly never mention "DictaMeeting", the application, or the AI assistant in the summary. The summary must refer solely to the speakers and topics in the transcript.
+            10. Mandatory output language: write the summary strictly in English, regardless of the language of the transcript (for instance, even if the transcript is in Spanish or another language, the summary MUST be written in English). Do not translate the input transcript; only write your final summary in English.{termsRule}
             """;
     }
 
@@ -88,7 +90,7 @@ public static class LiveSummaryPromptBuilder
             {newTranscriptWindow.Trim()}
 
             INSTRUCCIÓN:
-            Redacta en un único párrafo de aproximadamente 50 palabras un resumen conciso de las ideas clave tratadas en este fragmento. Redacta obligatoriamente de forma impersonal ("Se ha comentado...", "Se ha explicado..."), nunca en primera persona. Asegúrate de redactar oraciones completas y terminar con punto final:
+            Redacta en español en un único párrafo de aproximadamente 50 palabras (2 o 3 frases fluidas) un resumen conciso de las ideas clave tratadas en este fragmento, con independencia del idioma de la transcripción. Redacta en tercera persona de forma natural, sin repetir la misma fórmula al inicio de cada frase y sin repetir oraciones. Asegúrate de terminar con punto final:
             """;
     }
 
@@ -99,7 +101,7 @@ public static class LiveSummaryPromptBuilder
             {newTranscriptWindow.Trim()}
 
             INSTRUCTION:
-            Write a single paragraph of approximately 50 words summarizing the key points discussed in this section using impersonal phrasing, never first-person. Ensure all sentences are fully completed and end with a period:
+            Write the summary strictly in English as a single paragraph of approximately 50 words (2 or 3 fluent sentences) summarizing the key points of this section regardless of the transcript language, in natural third-person. Vary phrasing without repeating the same opener or repeating identical statements. Ensure all sentences end with a period:
             """;
     }
 

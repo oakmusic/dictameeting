@@ -26,10 +26,10 @@
     <Product>DictaMeeting</Product>
     <Title>DictaMeeting — Transcriptor Local de Reuniones</Title>
     <Description>Grabación, transcripción ASR local, diarización de interlocutores y actas ejecutivas con IA para Windows.</Description>
-    <Version>1.5.2</Version>
-    <AssemblyVersion>1.5.2.0</AssemblyVersion>
-    <FileVersion>1.5.2.0</FileVersion>
-    <InformationalVersion>1.5.2</InformationalVersion>
+    <Version>1.5.4</Version>
+    <AssemblyVersion>1.5.4.0</AssemblyVersion>
+    <FileVersion>1.5.4.0</FileVersion>
+    <InformationalVersion>1.5.4</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <NeutralLanguage>es</NeutralLanguage>
     <Authors>Aritz Villodas</Authors>

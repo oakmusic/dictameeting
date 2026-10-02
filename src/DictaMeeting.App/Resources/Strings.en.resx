@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <root>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
@@ -1242,6 +1242,18 @@ Do you want to change location anyway?</value>
   </data>
   <data name="Acta_Language_Label" xml:space="preserve">
     <value>Language</value>
+  </data>
+  <data name="Acta_Detail_Breve" xml:space="preserve">
+    <value>Brief</value>
+  </data>
+  <data name="Acta_Detail_Normal" xml:space="preserve">
+    <value>Normal</value>
+  </data>
+  <data name="Acta_Detail_Detallada" xml:space="preserve">
+    <value>Detailed</value>
+  </data>
+  <data name="Acta_Detail_Exhaustiva" xml:space="preserve">
+    <value>Comprehensive</value>
   </data>
   <data name="Notice_Title" xml:space="preserve">
     <value>Before you begin</value>

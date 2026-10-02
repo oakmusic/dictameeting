@@ -646,7 +646,7 @@ public partial class MainViewModel : ObservableObject
     private ActaDetailLevel _selectedDetailLevel = ActaDetailLevel.Normal;
 
     [ObservableProperty]
-    private LanguageMode _selectedActaLanguage = LanguageMode.Spanish;
+    private LanguageMode _selectedActaLanguage = LocalizationManager.Instance.CurrentLanguageCode.Equals("en", StringComparison.OrdinalIgnoreCase) ? LanguageMode.English : LanguageMode.Spanish;
 
     [ObservableProperty]
     private bool _includeParticipants = true;
@@ -782,6 +782,12 @@ public partial class MainViewModel : ObservableObject
     partial void OnUiLanguageChanged(string value)
     {
         DictaMeeting.App.Services.LocalizationManager.Instance.SetLanguage(value);
+        if (!IsActaModalOpen)
+        {
+            SelectedActaLanguage = string.Equals(value, "en", StringComparison.OrdinalIgnoreCase)
+                ? LanguageMode.English
+                : LanguageMode.Spanish;
+        }
         OnPropertyChanged(nameof(SystemSummaryBadge));
         OnPropertyChanged(nameof(ThemeToggleToolTip));
         OnPropertyChanged(nameof(CurrentThemeName));
@@ -883,12 +889,15 @@ public partial class MainViewModel : ObservableObject
         _audioPlayerService.Stop();
         _audioPlayerService.Close();
         _transcriptAudioSyncService.Clear();
+        _liveSummaryCoordinator.Reset();
 
         // 2. Limpiar datos y colecciones
         Participants.Clear();
         RealParticipants.Clear();
         TranscriptSegments.Clear();
         LiveSummaryCards.Clear();
+        LiveSummaryText = string.Empty;
+        LiveSummaryLastUpdated = null;
         SelectedHistoricalMeeting = null;
         DurationText = "00:00:00";
         MicLevel = 0;
@@ -1442,7 +1451,7 @@ public partial class MainViewModel : ObservableObject
         get
         {
             var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
-            return version != null ? $"Versión {version.Major}.{version.Minor}.{version.Build}" : "Versión 1.5.2";
+            return version != null ? $"Versión {version.Major}.{version.Minor}.{version.Build}" : "Versión 1.5.4";
         }
     }
 
@@ -1451,7 +1460,7 @@ public partial class MainViewModel : ObservableObject
         get
         {
             var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
-            return version != null ? $"v{version.Major}.{version.Minor}.{version.Build}" : "v1.5.2";
+            return version != null ? $"v{version.Major}.{version.Minor}.{version.Build}" : "v1.5.4";
         }
     }
 
@@ -3099,6 +3108,13 @@ public partial class MainViewModel : ObservableObject
                 IsMonitoringAudio = false;
             }
 
+            // Limpiar estado y colecciones previas de forma inmediata
+            _liveSummaryCoordinator.Reset();
+            LiveSummaryCards.Clear();
+            LiveSummaryText = string.Empty;
+            LiveSummaryLastUpdated = null;
+            UpdateLiveSummaryRelativeTime();
+
             Participants.Clear();
             TranscriptSegments.Clear();
             _diarizationService.Reset();
@@ -3195,8 +3211,10 @@ public partial class MainViewModel : ObservableObject
                 await _audioCaptureService.StartCaptureAsync(audioPath);
                 await _livePipeline.StartAsync();
 
-                // 5. Iniciar coordinador de resumen en vivo local (llama.cpp)
-                _liveSummaryCoordinator.Start(selectedLanguageMode.ToString());
+                // 5. Iniciar coordinador de resumen en vivo local vinculado unívocamente al MeetingId actual
+                var currentMeetingId = _meetingService.CurrentMeeting?.Id ?? Guid.NewGuid().ToString("N");
+                var liveSummaryLanguage = LocalizationManager.Instance.CurrentLanguageCode.Equals("en", StringComparison.OrdinalIgnoreCase) ? "English" : "Spanish";
+                _liveSummaryCoordinator.Start(currentMeetingId, liveSummaryLanguage);
             });
 
             LiveSummaryText = string.Empty;
@@ -3772,6 +3790,9 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void OpenActaDialog()
     {
+        SelectedActaLanguage = LocalizationManager.Instance.CurrentLanguageCode.Equals("en", StringComparison.OrdinalIgnoreCase)
+            ? LanguageMode.English
+            : LanguageMode.Spanish;
         _actaTargetMeeting = _meetingService.CurrentMeeting;
         CheckConfiguredApiKey();
         if (_actaTargetMeeting != null && !string.IsNullOrWhiteSpace(_actaTargetMeeting.ActaMarkdown))
@@ -3792,6 +3813,9 @@ public partial class MainViewModel : ObservableObject
     private void OpenHistoricalActaDialog()
     {
         if (SelectedHistoricalMeeting == null) return;
+        SelectedActaLanguage = LocalizationManager.Instance.CurrentLanguageCode.Equals("en", StringComparison.OrdinalIgnoreCase)
+            ? LanguageMode.English
+            : LanguageMode.Spanish;
         _actaTargetMeeting = SelectedHistoricalMeeting.Meeting;
         CheckConfiguredApiKey();
         if (_actaTargetMeeting != null && !string.IsNullOrWhiteSpace(_actaTargetMeeting.ActaMarkdown))
@@ -4338,6 +4362,19 @@ public partial class MainViewModel : ObservableObject
     {
         void UpdateAction()
         {
+            var currentMeeting = _meetingService.CurrentMeeting;
+            if (currentMeeting == null) return;
+
+            // Validación estricta de aislamiento: impedir que tarjetas de una reunión anterior o ajena se inserten
+            if (!string.IsNullOrEmpty(e.MeetingId) &&
+                !string.Equals(e.MeetingId, currentMeeting.Id, StringComparison.OrdinalIgnoreCase))
+            {
+                _logger?.LogWarning(
+                    "[MainViewModel] Tarjeta de resumen descartada en UI: MeetingId del evento ({EventMeetingId}) no coincide con la reunión activa ({CurrentMeetingId}).",
+                    e.MeetingId, currentMeeting.Id);
+                return;
+            }
+
             LiveSummaryText = e.Summary;
             LiveSummaryLastUpdated = e.Timestamp;
 

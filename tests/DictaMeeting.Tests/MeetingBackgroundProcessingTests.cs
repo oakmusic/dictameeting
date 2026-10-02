@@ -287,7 +287,7 @@ public class MeetingBackgroundProcessingTests : IDisposable
         Assert.False(processingService.IsProcessing, "El servicio debe marcar IsProcessing = false al finalizar.");
         Assert.False(vm.IsPostProcessing, "El ViewModel debe ocultar IsPostProcessing tras completar.");
         Assert.True(vm.HasPlayerAudio, "El reproductor DEBE mostrarse una vez finalizado el post-procesamiento.");
-        Assert.Equal("TRANSCRIPCIÓN FINAL", vm.TranscriptHeaderTitle);
+        Assert.Equal(DictaMeeting.App.Services.LocalizationManager.Instance["Transcript_Header_Final"], vm.TranscriptHeaderTitle);
     }
 
     [Fact]
@@ -338,8 +338,8 @@ public class MeetingBackgroundProcessingTests : IDisposable
         Assert.False(vm.IsPostProcessing);
         Assert.False(vm.CanCancelPostProcessing);
         Assert.True(vm.HasPlayerAudio, "El reproductor de audio debe estar disponible tras completar el post-procesamiento.");
-        Assert.Equal("TRANSCRIPCIÓN FINAL", vm.TranscriptHeaderTitle);
-        Assert.Contains("Alta fidelidad", vm.TranscriptHeaderSubtitle);
+        Assert.Equal(DictaMeeting.App.Services.LocalizationManager.Instance["Transcript_Header_Final"], vm.TranscriptHeaderTitle);
+        Assert.Equal(DictaMeeting.App.Services.LocalizationManager.Instance["Transcript_Subtitle_Completed"], vm.TranscriptHeaderSubtitle);
     }
 
     [Fact]

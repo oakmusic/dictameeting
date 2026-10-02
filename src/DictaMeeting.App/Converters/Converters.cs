@@ -90,3 +90,33 @@ public class NullToVisibilityConverter : IValueConverter
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => throw new NotImplementedException();
 }
+
+public static class ActaDetailLevelExtensions
+{
+    public static string ToLocalizedDisplay(this DictaMeeting.Meetings.Enums.ActaDetailLevel level, DictaMeeting.App.Services.LocalizationManager? loc = null)
+    {
+        var lm = loc ?? DictaMeeting.App.Services.LocalizationManager.Instance;
+        return level switch
+        {
+            DictaMeeting.Meetings.Enums.ActaDetailLevel.Breve => lm.GetString("Acta_Detail_Breve"),
+            DictaMeeting.Meetings.Enums.ActaDetailLevel.Normal => lm.GetString("Acta_Detail_Normal"),
+            DictaMeeting.Meetings.Enums.ActaDetailLevel.Detallada => lm.GetString("Acta_Detail_Detallada"),
+            DictaMeeting.Meetings.Enums.ActaDetailLevel.Exhaustiva => lm.GetString("Acta_Detail_Exhaustiva"),
+            _ => level.ToString()
+        };
+    }
+}
+
+public class ActaDetailLevelConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is DictaMeeting.Meetings.Enums.ActaDetailLevel level)
+        {
+            return level.ToLocalizedDisplay();
+        }
+        return value?.ToString() ?? string.Empty;
+    }
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => throw new NotImplementedException();
+}

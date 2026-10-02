@@ -52,11 +52,11 @@ Bienvenido al **Manual de Usuario de DictaMeeting**, la aplicación nativa para 
 
 DictaMeeting se distribuye en dos modalidades para Windows x64:
 
-- **Instalador Oficial (`DictaMeeting-v1.5.2-Setup.exe`)**:
+- **Instalador Oficial (`DictaMeeting-v1.5.4-Setup.exe`)**:
   - No requiere permisos de administrador (se instala en la cuenta del usuario actual).
   - Crea accesos directos en el menú Inicio y en el Escritorio.
   - Proporciona un desinstalador limpio desde *Configuración > Aplicaciones* de Windows.
-- **Paquete Portable (`DictaMeeting-v1.5.2-win-x64-portable.zip`)**:
+- **Paquete Portable (`DictaMeeting-v1.5.4-win-x64-portable.zip`)**:
   - No requiere instalación.
   - Descomprime el archivo ZIP en cualquier carpeta o unidad externa y ejecuta `DictaMeeting.exe`.
 

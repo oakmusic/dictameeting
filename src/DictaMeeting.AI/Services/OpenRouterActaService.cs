@@ -121,14 +121,26 @@ public class OpenRouterActaService : IAiActaService, IAiActaProvider
                 new { role = "user", content = fullPrompt }
             };
 
-            var reasoning = new
-            {
-                effort = "high",
-                max_tokens = 6000,
-                exclude = true
-            };
+            // 4. Construir configuración de reasoning válida y compatible con OpenRouter.
+            // Según la documentación oficial de OpenRouter (reasoning-tokens):
+            // "Only one of reasoning.effort and reasoning.max_tokens can be specified".
+            // Se mantiene estrictamente separado el razonamiento (reasoning) del límite de tokens
+            // de salida de la respuesta final (max_tokens = 4000 en el payload principal).
+            object reasoning = options.ReasoningMaxTokens.HasValue && options.ReasoningMaxTokens.Value > 0
+                ? new
+                {
+                    max_tokens = options.ReasoningMaxTokens.Value,
+                    exclude = true
+                }
+                : new
+                {
+                    effort = !string.IsNullOrWhiteSpace(options.ReasoningEffort) ? options.ReasoningEffort : "high",
+                    exclude = true
+                };
 
-            object requestPayload = modelToUse.Equals("openai/gpt-6-luna", StringComparison.OrdinalIgnoreCase)
+            bool isTemperatureUnsupported = IsTemperatureUnsupported(modelToUse);
+
+            object requestPayload = isTemperatureUnsupported
                 ? new
                 {
                     model = modelToUse,
@@ -256,6 +268,13 @@ public class OpenRouterActaService : IAiActaService, IAiActaProvider
                 ModelUsed = modelToUse
             };
         }
+    }
+
+    private static bool IsTemperatureUnsupported(string model)
+    {
+        return model.Equals("openai/gpt-6-luna", StringComparison.OrdinalIgnoreCase) ||
+               model.StartsWith("openai/o1", StringComparison.OrdinalIgnoreCase) ||
+               model.StartsWith("openai/o3", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string ParseErrorMessage(string responseBody, System.Net.HttpStatusCode statusCode)

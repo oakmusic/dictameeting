@@ -49,7 +49,7 @@ public class DistributionAndPackagingTests
 
         Assert.Contains("[Setup]", content);
         Assert.Contains("#define MyAppName \"DictaMeeting\"", content);
-        Assert.Contains("#define MyAppVersion \"1.5.2\"", content);
+        Assert.Contains("#define MyAppVersion \"1.5.4\"", content);
         Assert.Contains("AppName={#MyAppName}", content);
         Assert.Contains("PrivilegesRequired=lowest", content);
         Assert.Contains("[Files]", content);

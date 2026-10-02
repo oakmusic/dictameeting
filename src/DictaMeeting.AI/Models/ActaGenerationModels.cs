@@ -23,6 +23,19 @@ public class ActaGenerationOptions
     public IReadOnlyList<string>? VocabularyTerms { get; set; }
     public string? Endpoint { get; set; }
     public string? CustomModelName { get; set; }
+
+    /// <summary>
+    /// Nivel de esfuerzo de razonamiento para OpenRouter ("high", "medium", "low", "none", etc.).
+    /// Por defecto es "high". Solo se envía si ReasoningMaxTokens no está definido.
+    /// </summary>
+    public string? ReasoningEffort { get; set; } = "high";
+
+    /// <summary>
+    /// Límite explícito de tokens de razonamiento para OpenRouter.
+    /// Si tiene valor > 0, se envía reasoning.max_tokens en lugar de reasoning.effort.
+    /// En ningún caso se envían ambos simultáneamente para respetar la API de OpenRouter.
+    /// </summary>
+    public int? ReasoningMaxTokens { get; set; }
 }
 
 public class ActaGenerationResult

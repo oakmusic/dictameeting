@@ -28,19 +28,39 @@ public class LiveSummaryConfig
     public uint ContextSizeTokens { get; set; } = 2048;
 
     /// <summary>
-    /// Máximo de tokens a generar por tarjeta de resumen (~50-60 palabras = ~80-110 tokens, con margen de seguridad para evitar frases cortadas).
+    /// Máximo de tokens a generar por tarjeta de resumen (~50-60 palabras = ~80-110 tokens, con margen de seguridad).
     /// </summary>
-    public int MaxTokensToGenerate { get; set; } = 220;
+    public int MaxTokensToGenerate { get; set; } = 160;
 
     /// <summary>
-    /// Temperatura de muestreo. Un valor bajo (0.2) previene alucinaciones y favorece fidelidad factual.
+    /// Temperatura de muestreo. Un valor de 0.3f equilibra fidelidad factual y fluidez natural.
     /// </summary>
-    public float Temperature { get; set; } = 0.2f;
+    public float Temperature { get; set; } = 0.3f;
 
     /// <summary>
     /// Top-P sampling.
     /// </summary>
     public float TopP { get; set; } = 0.85f;
+
+    /// <summary>
+    /// Penalización de repetición para prevenir bucles degenerativos en modelos locales compactos.
+    /// </summary>
+    public float RepeatPenalty { get; set; } = 1.18f;
+
+    /// <summary>
+    /// Penalización por frecuencia de tokens repetidos.
+    /// </summary>
+    public float FrequencyPenalty { get; set; } = 0.3f;
+
+    /// <summary>
+    /// Penalización por presencia de tokens previamente generados.
+    /// </summary>
+    public float PresencePenalty { get; set; } = 0.15f;
+
+    /// <summary>
+    /// Cantidad de tokens anteriores a considerar para la penalización de repetición.
+    /// </summary>
+    public int PenaltyCount { get; set; } = 128;
 
     /// <summary>
     /// Hilos de CPU para inferencia. Si es null, usa la mitad de núcleos lógicos (máx 4)

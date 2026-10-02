@@ -148,7 +148,11 @@ public class LocalLlamaCppSummaryService : ILiveSummaryService
                 SamplingPipeline = new DefaultSamplingPipeline
                 {
                     Temperature = _config.Temperature,
-                    TopP = _config.TopP
+                    TopP = _config.TopP,
+                    RepeatPenalty = _config.RepeatPenalty,
+                    FrequencyPenalty = _config.FrequencyPenalty,
+                    PresencePenalty = _config.PresencePenalty,
+                    PenaltyCount = _config.PenaltyCount
                 }
             };
 

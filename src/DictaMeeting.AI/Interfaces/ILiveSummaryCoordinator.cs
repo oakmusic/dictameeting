@@ -5,6 +5,7 @@ namespace DictaMeeting.AI.Interfaces;
 
 public class SummaryUpdatedEventArgs : EventArgs
 {
+    public string MeetingId { get; }
     public string Summary { get; }
     public DateTimeOffset Timestamp { get; }
     public SummaryMetrics? Metrics { get; }
@@ -12,17 +13,29 @@ public class SummaryUpdatedEventArgs : EventArgs
     public IReadOnlyList<SummarySegment> AllCards { get; }
 
     public SummaryUpdatedEventArgs(
+        string meetingId,
         string summary,
         DateTimeOffset timestamp,
         SummaryMetrics? metrics = null,
         SummarySegment? card = null,
         IReadOnlyList<SummarySegment>? allCards = null)
     {
+        MeetingId = meetingId ?? string.Empty;
         Summary = summary;
         Timestamp = timestamp;
         Metrics = metrics;
         Card = card;
         AllCards = allCards ?? Array.Empty<SummarySegment>();
+    }
+
+    public SummaryUpdatedEventArgs(
+        string summary,
+        DateTimeOffset timestamp,
+        SummaryMetrics? metrics = null,
+        SummarySegment? card = null,
+        IReadOnlyList<SummarySegment>? allCards = null)
+        : this(string.Empty, summary, timestamp, metrics, card, allCards)
+    {
     }
 }
 
@@ -32,6 +45,7 @@ public class SummaryUpdatedEventArgs : EventArgs
 /// </summary>
 public interface ILiveSummaryCoordinator : IDisposable, IAsyncDisposable
 {
+    string? CurrentMeetingId { get; }
     IReadOnlyList<SummarySegment> SummaryCards { get; }
     string CurrentSummary { get; }
     DateTimeOffset? LastUpdatedTime { get; }
@@ -41,6 +55,7 @@ public interface ILiveSummaryCoordinator : IDisposable, IAsyncDisposable
     event EventHandler<SummaryUpdatedEventArgs>? SummaryUpdated;
     event EventHandler<bool>? GeneratingStateChanged;
 
+    void Start(string meetingId, string language = "Spanish");
     void Start(string language = "Spanish");
     void Stop();
     void Reset();

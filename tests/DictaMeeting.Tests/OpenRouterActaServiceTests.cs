@@ -365,7 +365,7 @@ public class OpenRouterActaServiceTests
 
         var reasoning = root.GetProperty("reasoning");
         Assert.Equal("high", reasoning.GetProperty("effort").GetString());
-        Assert.Equal(6000, reasoning.GetProperty("max_tokens").GetInt32());
+        Assert.False(reasoning.TryGetProperty("max_tokens", out _), "OpenRouter reasoning NO debe incluir max_tokens si ya se especifica effort.");
         Assert.True(reasoning.GetProperty("exclude").GetBoolean());
     }
 
@@ -420,8 +420,395 @@ public class OpenRouterActaServiceTests
 
         var reasoning = root.GetProperty("reasoning");
         Assert.Equal("high", reasoning.GetProperty("effort").GetString());
-        Assert.Equal(6000, reasoning.GetProperty("max_tokens").GetInt32());
+        Assert.False(reasoning.TryGetProperty("max_tokens", out _), "OpenRouter reasoning NO debe incluir max_tokens si ya se especifica effort.");
         Assert.True(reasoning.GetProperty("exclude").GetBoolean());
     }
+
+    // 1. La request de OpenRouter NO contiene simultáneamente reasoning.effort y reasoning.max_tokens
+    [Fact]
+    public async Task GenerateActaAsync_NeverSendsEffortAndMaxTokensSimultaneously()
+    {
+        // Caso A: Opciones por defecto (envía effort, NO max_tokens dentro de reasoning)
+        string? capturedBodyDefault = null;
+        var mockHandlerA = new MockHttpMessageHandler
+        {
+            HandlerFunc = request =>
+            {
+                capturedBodyDefault = request.Content?.ReadAsStringAsync().GetAwaiter().GetResult();
+                var responseJson = new { choices = new[] { new { message = new { content = "# Acta A" } } } };
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(JsonSerializer.Serialize(responseJson), Encoding.UTF8, "application/json")
+                });
+            }
+        };
+
+        var serviceA = new OpenRouterActaService(new HttpClient(mockHandlerA));
+        var meeting = new Meeting { Title = "Reunión" };
+        meeting.Transcript.Add(new TranscriptSegment { SpeakerId = "SPEAKER_00", Text = "Texto de debate" });
+
+        var optionsDefault = new ActaGenerationOptions { ApiKey = "sk-test", ModelName = "qwen/qwen3.8-flash" };
+        await serviceA.GenerateActaAsync(meeting, optionsDefault);
+
+        Assert.NotNull(capturedBodyDefault);
+        using (var docA = JsonDocument.Parse(capturedBodyDefault))
+        {
+            var reasoningA = docA.RootElement.GetProperty("reasoning");
+            bool hasEffort = reasoningA.TryGetProperty("effort", out _);
+            bool hasMaxTokens = reasoningA.TryGetProperty("max_tokens", out _);
+
+            Assert.True(hasEffort, "Por defecto debe enviar effort.");
+            Assert.False(hasMaxTokens, "Por defecto NO debe enviar max_tokens dentro de reasoning.");
+            Assert.False(hasEffort && hasMaxTokens, "NUNCA deben enviarse reasoning.effort y reasoning.max_tokens simultáneamente.");
+        }
+
+        // Caso B: Opciones con ReasoningMaxTokens configurado (envía max_tokens, NO effort dentro de reasoning)
+        string? capturedBodyExplicitTokens = null;
+        var mockHandlerB = new MockHttpMessageHandler
+        {
+            HandlerFunc = request =>
+            {
+                capturedBodyExplicitTokens = request.Content?.ReadAsStringAsync().GetAwaiter().GetResult();
+                var responseJson = new { choices = new[] { new { message = new { content = "# Acta B" } } } };
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(JsonSerializer.Serialize(responseJson), Encoding.UTF8, "application/json")
+                });
+            }
+        };
+
+        var serviceB = new OpenRouterActaService(new HttpClient(mockHandlerB));
+        var optionsWithBudget = new ActaGenerationOptions
+        {
+            ApiKey = "sk-test",
+            ModelName = "qwen/qwen3.8-flash",
+            ReasoningMaxTokens = 3000
+        };
+        await serviceB.GenerateActaAsync(meeting, optionsWithBudget);
+
+        Assert.NotNull(capturedBodyExplicitTokens);
+        using (var docB = JsonDocument.Parse(capturedBodyExplicitTokens))
+        {
+            var reasoningB = docB.RootElement.GetProperty("reasoning");
+            bool hasEffort = reasoningB.TryGetProperty("effort", out _);
+            bool hasMaxTokens = reasoningB.TryGetProperty("max_tokens", out _);
+
+            Assert.True(hasMaxTokens, "Al configurar ReasoningMaxTokens debe enviarse max_tokens.");
+            Assert.False(hasEffort, "Al configurar ReasoningMaxTokens NO debe enviarse effort.");
+            Assert.Equal(3000, reasoningB.GetProperty("max_tokens").GetInt32());
+            Assert.False(hasEffort && hasMaxTokens, "NUNCA deben enviarse reasoning.effort y reasoning.max_tokens simultáneamente.");
+        }
+    }
+
+    // 2. La request generada para un modelo de reasoning es válida y compatible
+    [Theory]
+    [InlineData("openai/gpt-6-luna")]
+    [InlineData("qwen/qwen3.8-flash")]
+    [InlineData("anthropic/claude-3.5-sonnet")]
+    public async Task GenerateActaAsync_ReasoningRequestPayload_IsValidForVariousModels(string modelName)
+    {
+        string? capturedBody = null;
+        var mockHandler = new MockHttpMessageHandler
+        {
+            HandlerFunc = request =>
+            {
+                capturedBody = request.Content?.ReadAsStringAsync().GetAwaiter().GetResult();
+                var responseJson = new { choices = new[] { new { message = new { content = "# Acta" } } } };
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(JsonSerializer.Serialize(responseJson), Encoding.UTF8, "application/json")
+                });
+            }
+        };
+
+        var service = new OpenRouterActaService(new HttpClient(mockHandler));
+        var meeting = new Meeting { Title = "Reunión" };
+        meeting.Transcript.Add(new TranscriptSegment { SpeakerId = "SPEAKER_00", Text = "Puntos clave de la reunión" });
+
+        var options = new ActaGenerationOptions
+        {
+            ApiKey = "sk-test",
+            ModelName = modelName
+        };
+
+        var result = await service.GenerateActaAsync(meeting, options);
+        Assert.True(result.Success);
+        Assert.NotNull(capturedBody);
+
+        using var doc = JsonDocument.Parse(capturedBody);
+        var root = doc.RootElement;
+        Assert.Equal(modelName, root.GetProperty("model").GetString());
+
+        // Reasoning object schema validation
+        Assert.True(root.TryGetProperty("reasoning", out var reasoning));
+        Assert.True(reasoning.TryGetProperty("effort", out var effortProp) || reasoning.TryGetProperty("max_tokens", out var _));
+        Assert.False(reasoning.TryGetProperty("effort", out _) && reasoning.TryGetProperty("max_tokens", out _));
+        Assert.True(reasoning.GetProperty("exclude").GetBoolean());
+    }
+
+    // 3. El límite de salida sigue configurándose correctamente
+    [Fact]
+    public async Task GenerateActaAsync_OutputLimit_ConfiguredCorrectlySeparateFromReasoning()
+    {
+        string? capturedBody = null;
+        var mockHandler = new MockHttpMessageHandler
+        {
+            HandlerFunc = request =>
+            {
+                capturedBody = request.Content?.ReadAsStringAsync().GetAwaiter().GetResult();
+                var responseJson = new { choices = new[] { new { message = new { content = "# Acta" } } } };
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(JsonSerializer.Serialize(responseJson), Encoding.UTF8, "application/json")
+                });
+            }
+        };
+
+        var service = new OpenRouterActaService(new HttpClient(mockHandler));
+        var meeting = new Meeting { Title = "Reunión" };
+        meeting.Transcript.Add(new TranscriptSegment { SpeakerId = "SPEAKER_00", Text = "Puntos del día" });
+
+        var options = new ActaGenerationOptions { ApiKey = "sk-test", ModelName = "qwen/qwen3.8-flash" };
+        var result = await service.GenerateActaAsync(meeting, options);
+
+        Assert.True(result.Success);
+        Assert.NotNull(capturedBody);
+
+        using var doc = JsonDocument.Parse(capturedBody);
+        var root = doc.RootElement;
+
+        // El límite de tokens de respuesta del payload principal debe ser 4000
+        Assert.Equal(4000, root.GetProperty("max_tokens").GetInt32());
+    }
+
+    // 6. No se rompe la selección de idioma del Acta
+    [Theory]
+    [InlineData(DictaMeeting.Meetings.Enums.LanguageMode.Spanish, "Español", "DIRECTRICES MANDATORIAS DE ACTA IMPERSONAL")]
+    [InlineData(DictaMeeting.Meetings.Enums.LanguageMode.English, "English", "MANDATORY IMPERSONAL MINUTES DIRECTIVES")]
+    public async Task GenerateActaAsync_PreservesLanguageSelection(DictaMeeting.Meetings.Enums.LanguageMode language, string expectedLangWord, string expectedDirective)
+    {
+        string? capturedBody = null;
+        var mockHandler = new MockHttpMessageHandler
+        {
+            HandlerFunc = request =>
+            {
+                capturedBody = request.Content?.ReadAsStringAsync().GetAwaiter().GetResult();
+                var responseJson = new { choices = new[] { new { message = new { content = "# Minutes" } } } };
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(JsonSerializer.Serialize(responseJson), Encoding.UTF8, "application/json")
+                });
+            }
+        };
+
+        var service = new OpenRouterActaService(new HttpClient(mockHandler));
+        var meeting = new Meeting { Title = "Bilingual Meeting" };
+        meeting.Transcript.Add(new TranscriptSegment { SpeakerId = "SPEAKER_00", Text = "Hello team, let's begin." });
+
+        var options = new ActaGenerationOptions
+        {
+            ApiKey = "sk-test",
+            ModelName = "qwen/qwen3.8-flash",
+            Language = language,
+            IsImpersonal = true
+        };
+
+        var result = await service.GenerateActaAsync(meeting, options);
+        Assert.True(result.Success);
+        Assert.NotNull(capturedBody);
+
+        using var doc = JsonDocument.Parse(capturedBody);
+        var messages = doc.RootElement.GetProperty("messages");
+        var userContent = messages[1].GetProperty("content").GetString();
+
+        Assert.NotNull(userContent);
+        Assert.Contains(expectedLangWord, userContent);
+        Assert.Contains(expectedDirective, userContent);
+    }
+
+    // 7. No se rompe la selección de nivel de detalle
+    [Theory]
+    [InlineData(DictaMeeting.Meetings.Enums.ActaDetailLevel.Breve)]
+    [InlineData(DictaMeeting.Meetings.Enums.ActaDetailLevel.Normal)]
+    [InlineData(DictaMeeting.Meetings.Enums.ActaDetailLevel.Detallada)]
+    public async Task GenerateActaAsync_PreservesDetailLevelSelection(DictaMeeting.Meetings.Enums.ActaDetailLevel detailLevel)
+    {
+        string? capturedBody = null;
+        var mockHandler = new MockHttpMessageHandler
+        {
+            HandlerFunc = request =>
+            {
+                capturedBody = request.Content?.ReadAsStringAsync().GetAwaiter().GetResult();
+                var responseJson = new { choices = new[] { new { message = new { content = "# Acta" } } } };
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(JsonSerializer.Serialize(responseJson), Encoding.UTF8, "application/json")
+                });
+            }
+        };
+
+        var service = new OpenRouterActaService(new HttpClient(mockHandler));
+        var meeting = new Meeting { Title = "Reunión de prueba" };
+        meeting.Transcript.Add(new TranscriptSegment { SpeakerId = "SPEAKER_00", Text = "Detalles y acuerdos." });
+
+        var options = new ActaGenerationOptions
+        {
+            ApiKey = "sk-test",
+            ModelName = "qwen/qwen3.8-flash",
+            DetailLevel = detailLevel
+        };
+
+        var result = await service.GenerateActaAsync(meeting, options);
+        Assert.True(result.Success);
+        Assert.NotNull(capturedBody);
+
+        using var doc = JsonDocument.Parse(capturedBody);
+        var messages = doc.RootElement.GetProperty("messages");
+        var userContent = messages[1].GetProperty("content").GetString();
+
+        Assert.NotNull(userContent);
+        Assert.Contains($"Nivel de detalle requerido: {detailLevel}", userContent);
+    }
+
+    // Prueba real de integración con OpenRouter utilizando la clave configurada en Windows DPAPI
+    [Fact]
+    public async Task RealOpenRouter_GeneratesActa_WithConfiguredModel_WithoutError()
+    {
+        var secureStorage = new WindowsDpapiSecureStorageService();
+        var key = secureStorage.GetSecret(OpenRouterActaService.OpenRouterApiKeyStorageKey);
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            // Omitir si la máquina no cuenta con API Key en DPAPI
+            return;
+        }
+
+        using var client = new HttpClient();
+        var service = new OpenRouterActaService(client, secureStorage);
+
+        var connResult = await service.TestConnectionAsync();
+        Assert.True(connResult.Success, connResult.Message);
+
+        var meeting = new Meeting
+        {
+            Title = "Reunión de prueba DictaMeeting 1.5.4",
+            Date = DateTime.Today,
+            Organizer = "Equipo Técnico"
+        };
+        meeting.Transcript.Add(new TranscriptSegment
+        {
+            SpeakerId = "SPEAKER_00",
+            Text = "Buenos días. En esta reunión acordamos lanzar la versión 1.5.4 de DictaMeeting con la corrección definitiva para OpenRouter."
+        });
+
+        var options = new ActaGenerationOptions
+        {
+            ModelName = "qwen/qwen3.8-flash",
+            Language = DictaMeeting.Meetings.Enums.LanguageMode.Spanish,
+            DetailLevel = DictaMeeting.Meetings.Enums.ActaDetailLevel.Normal
+        };
+
+        var actaResult = await service.GenerateActaAsync(meeting, options);
+
+        Assert.True(actaResult.Success, $"Fallo en OpenRouter: {actaResult.ErrorMessage}");
+        Assert.False(string.IsNullOrWhiteSpace(actaResult.MarkdownContent), "El acta devuelta no debe estar vacía.");
+        Assert.Null(actaResult.ErrorMessage);
+        Assert.NotNull(actaResult.PromptTokensUsed);
+        Assert.NotNull(actaResult.CompletionTokensUsed);
+    }
+
+    // Prueba real de integración de Custom Provider con servidor HTTP local
+    [Fact]
+    public async Task RealCustomProvider_GeneratesActa_WithLocalServer_Successfully()
+    {
+        // Levantar un HttpListener local en un puerto dinámico
+        var listener = new System.Net.HttpListener();
+        var testPort = 59123;
+        var prefix = $"http://127.0.0.1:{testPort}/";
+        listener.Prefixes.Add(prefix);
+        listener.Start();
+
+        string? receivedRequestBody = null;
+        var serverTask = Task.Run(async () =>
+        {
+            try
+            {
+                var context = await listener.GetContextAsync();
+                using var reader = new System.IO.StreamReader(context.Request.InputStream, Encoding.UTF8);
+                receivedRequestBody = await reader.ReadToEndAsync();
+
+                var responsePayload = new
+                {
+                    id = "custom-chat-1",
+                    choices = new[]
+                    {
+                        new
+                        {
+                            message = new
+                            {
+                                role = "assistant",
+                                content = "# Acta de Reunión Personalizada\n\n## Resumen\nTodo correcto."
+                            },
+                            finish_reason = "stop"
+                        }
+                    },
+                    usage = new
+                    {
+                        prompt_tokens = 150,
+                        completion_tokens = 40,
+                        total_tokens = 190
+                    }
+                };
+
+                var responseBytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(responsePayload));
+                context.Response.ContentType = "application/json";
+                context.Response.ContentLength64 = responseBytes.Length;
+                await context.Response.OutputStream.WriteAsync(responseBytes);
+                context.Response.Close();
+            }
+            catch
+            {
+                // listener stopped
+            }
+        });
+
+        try
+        {
+            using var client = new HttpClient();
+            var service = new OpenAiCompatibleActaService(client);
+
+            var meeting = new Meeting { Title = "Reunión Custom Server" };
+            meeting.Transcript.Add(new TranscriptSegment { SpeakerId = "SPEAKER_00", Text = "Prueba con servidor compatible OpenAI." });
+
+            var options = new ActaGenerationOptions
+            {
+                Endpoint = $"http://127.0.0.1:{testPort}/v1/chat/completions",
+                CustomModelName = "custom-local-model",
+                ApiKey = "dummy-custom-key"
+            };
+
+            var result = await service.GenerateActaAsync(meeting, options);
+            await serverTask;
+
+            Assert.True(result.Success, result.ErrorMessage);
+            Assert.Contains("# Acta de Reunión Personalizada", result.MarkdownContent);
+            Assert.Equal(150, result.PromptTokensUsed);
+            Assert.Equal(40, result.CompletionTokensUsed);
+
+            Assert.NotNull(receivedRequestBody);
+            using var doc = JsonDocument.Parse(receivedRequestBody);
+            var root = doc.RootElement;
+            Assert.Equal("custom-local-model", root.GetProperty("model").GetString());
+            Assert.Equal(4000, root.GetProperty("max_tokens").GetInt32());
+            Assert.False(root.TryGetProperty("reasoning", out _), "El Custom Provider no debe incluir propiedad reasoning.");
+            Assert.False(root.TryGetProperty("temperature", out _), "El Custom Provider no debe incluir propiedad temperature.");
+        }
+        finally
+        {
+            listener.Stop();
+            listener.Close();
+        }
+    }
 }
+
+
 

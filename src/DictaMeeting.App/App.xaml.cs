@@ -37,7 +37,7 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
-        LogBoot($"[App] Bootstrap iniciado. DictaMeeting v1.5.2 (.NET {Environment.Version}, OS: {Environment.OSVersion}, 64-bit: {Environment.Is64BitProcess})");
+        LogBoot($"[App] Bootstrap iniciado. DictaMeeting v1.5.4 (.NET {Environment.Version}, OS: {Environment.OSVersion}, 64-bit: {Environment.Is64BitProcess})");
 
         // Prevenir cierre prematuro de la aplicación durante la transición SplashWindow -> MainWindow
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
@@ -256,6 +256,7 @@ public partial class App : Application
             var summaryFolder = Path.Combine(modelManager.ModelsDirectory, "summary");
             return new LocalLiveSummaryModelManager(summaryFolder, httpClient, logger);
         });
+        services.AddSingleton<ILiveSummaryOutputValidator, LiveSummaryOutputValidator>();
         services.AddSingleton<ILiveSummaryService, LocalLlamaCppSummaryService>();
         services.AddSingleton<ILiveSummaryCoordinator, LiveSummaryCoordinator>();
 

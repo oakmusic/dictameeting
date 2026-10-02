@@ -6,6 +6,7 @@ namespace DictaMeeting.Meetings.Models;
 public class SummarySegment
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    public string? MeetingId { get; set; }
     public TimeSpan StartTime { get; set; }
     public TimeSpan EndTime { get; set; }
     public string FormattedTimeRange { get; set; } = string.Empty;
