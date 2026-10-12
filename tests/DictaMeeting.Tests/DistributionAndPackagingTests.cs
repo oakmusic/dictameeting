@@ -15,6 +15,8 @@ public class DistributionAndPackagingTests
         Assert.NotNull(version);
         Assert.Equal(1, version.Major);
         Assert.Equal(5, version.Minor);
+        Assert.Equal(4, version.Build);
+        Assert.Equal(2, version.Revision);
 
         var titleAttr = assembly.GetCustomAttribute<AssemblyTitleAttribute>();
         Assert.NotNull(titleAttr);
@@ -49,7 +51,7 @@ public class DistributionAndPackagingTests
 
         Assert.Contains("[Setup]", content);
         Assert.Contains("#define MyAppName \"DictaMeeting\"", content);
-        Assert.Contains("#define MyAppVersion \"1.5.4\"", content);
+        Assert.Contains("#define MyAppVersion \"1.5.4r2\"", content);
         Assert.Contains("AppName={#MyAppName}", content);
         Assert.Contains("PrivilegesRequired=lowest", content);
         Assert.Contains("[Files]", content);

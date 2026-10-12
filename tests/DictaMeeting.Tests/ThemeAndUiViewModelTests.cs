@@ -14,6 +14,11 @@ namespace DictaMeeting.Tests;
 
 public class ThemeAndUiViewModelTests
 {
+    public ThemeAndUiViewModelTests()
+    {
+        LocalizationManager.Instance.CurrentCulture = new System.Globalization.CultureInfo("es");
+    }
+
     [Fact]
     public void ThemeManager_DefaultsToLightMode()
     {

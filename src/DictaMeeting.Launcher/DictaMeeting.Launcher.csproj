@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <AssemblyName>DictaMeeting</AssemblyName>
+    <RootNamespace>DictaMeeting.Launcher</RootNamespace>
+    <ApplicationIcon>..\DictaMeeting.App\Resources\app.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+
+    <!-- Metadatos Win32 VERSIONINFO completos: reduce drásticamente los falsos positivos AV -->
+    <Product>DictaMeeting</Product>
+    <Title>DictaMeeting — Transcriptor Local de Reuniones</Title>
+    <Description>DictaMeeting — Transcriptor Local de Reuniones</Description>
+    <Version>1.5.4-r2</Version>
+    <AssemblyVersion>1.5.4.2</AssemblyVersion>
+    <FileVersion>1.5.4.2</FileVersion>
+    <InformationalVersion>1.5.4r2</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <Authors>Aritz Villodas</Authors>
+    <Company>Aritz Villodas</Company>
+    <Copyright>© 2026 Aritz Villodas. Todos los derechos reservados.</Copyright>
+    <NeutralLanguage>es</NeutralLanguage>
+
+    <!-- Optimización: sin R2R para el launcher (binario simple, evita mixed-mode) -->
+    <PublishReadyToRun>false</PublishReadyToRun>
+    <PublishTrimmed>true</PublishTrimmed>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="..\DictaMeeting.App\Resources\app.ico" Link="Resources\app.ico" />
+  </ItemGroup>
+
+</Project>

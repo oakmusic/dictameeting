@@ -671,7 +671,7 @@ public class OpenRouterActaServiceTests
     }
 
     // Prueba real de integración con OpenRouter utilizando la clave configurada en Windows DPAPI
-    [Fact]
+    [Fact(Skip = "Prueba de integración en vivo con OpenRouter (requiere credenciales y conectividad externa)")]
     public async Task RealOpenRouter_GeneratesActa_WithConfiguredModel_WithoutError()
     {
         var secureStorage = new WindowsDpapiSecureStorageService();

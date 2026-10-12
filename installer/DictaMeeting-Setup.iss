@@ -4,7 +4,8 @@
 ; =====================================================================
 
 #define MyAppName "DictaMeeting"
-#define MyAppVersion "1.5.4"
+#define MyAppVersion "1.5.4r2"
+#define MyAppNumericVersion "1.5.4.2"
 #define MyAppPublisher "Aritz Villodas"
 #define MyAppURL "https://github.com/oakmusic/dictameeting"
 #define MyAppExeName "DictaMeeting.exe"
@@ -25,7 +26,9 @@ AllowNoIcons=yes
 LicenseFile=..\LICENSE
 OutputDir=..\dist\installer
 OutputBaseFilename=DictaMeeting-v{#MyAppVersion}-Setup
-Compression=lzma2/ultra64
+; Compresión normal (no ultra): reduce la entropía del instalador para minimizar
+; falsos positivos en motores heurísticos AV que asocian alta entropía con packers
+Compression=lzma2/normal
 SolidCompression=yes
 WizardStyle=modern
 SetupIconFile=..\src\DictaMeeting.App\Resources\app.ico
@@ -35,6 +38,14 @@ PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 DisableProgramGroupPage=auto
 CloseApplications=yes
+; Metadatos Win32 VERSIONINFO completos para evitar detección heurística por binario anónimo/incompleto
+VersionInfoVersion={#MyAppNumericVersion}
+VersionInfoCompany={#MyAppPublisher}
+VersionInfoDescription={#MyAppName} Setup — Transcriptor Local de Reuniones
+VersionInfoCopyright=© 2026 {#MyAppPublisher}. Todos los derechos reservados.
+VersionInfoProductName={#MyAppName}
+VersionInfoProductVersion={#MyAppNumericVersion}
+VersionInfoOriginalFileName=DictaMeeting-v{#MyAppVersion}-Setup.exe
 RestartApplications=no
 
 [Languages]

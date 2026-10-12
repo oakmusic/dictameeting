@@ -1,21 +1,23 @@
 using System;
 using System.Diagnostics;
 using System.IO;
-using System.Reflection;
-using System.Windows.Forms;
-
-[assembly: AssemblyTitle("DictaMeeting")]
-[assembly: AssemblyProduct("DictaMeeting")]
-[assembly: AssemblyDescription("DictaMeeting — Transcriptor Local de Reuniones")]
-[assembly: AssemblyCompany("Aritz Villodas")]
-[assembly: AssemblyCopyright("© 2026 Aritz Villodas. Todos los derechos reservados.")]
-[assembly: AssemblyVersion("1.5.4.0")]
-[assembly: AssemblyFileVersion("1.5.4.0")]
+using System.Runtime.InteropServices;
 
 namespace DictaMeeting.Launcher
 {
     static class Program
     {
+        [DllImport("user32.dll", EntryPoint = "MessageBoxW", CharSet = CharSet.Unicode, SetLastError = true)]
+        private static extern int MessageBoxW(IntPtr hWnd, string lpText, string lpCaption, uint uType);
+
+        private const uint MB_OK = 0x00000000;
+        private const uint MB_ICONERROR = 0x00000010;
+
+        private static void ShowErrorMessage(string message, string title)
+        {
+            MessageBoxW(IntPtr.Zero, message, title, MB_OK | MB_ICONERROR);
+        }
+
         [STAThread]
         static void Main(string[] args)
         {
@@ -27,13 +29,11 @@ namespace DictaMeeting.Launcher
                 if (!File.Exists(targetExe))
                 {
                     LogDiagnostic("[Launcher] ERROR: No se encontró el binario 'data\\DictaMeeting.exe'. Ruta buscada: " + targetExe);
-                    MessageBox.Show(
+                    ShowErrorMessage(
                         "No se encontró el ejecutable principal en la carpeta 'data':\n\n" +
                         targetExe + "\n\n" +
                         "Asegúrese de que el directorio 'data' no ha sido movido ni eliminado.",
-                        "DictaMeeting — Error de inicio",
-                        MessageBoxButtons.OK,
-                        MessageBoxIcon.Error);
+                        "DictaMeeting — Error de inicio");
                     return;
                 }
 
@@ -55,11 +55,9 @@ namespace DictaMeeting.Launcher
             catch (Exception ex)
             {
                 LogDiagnostic("[Launcher] EXCEPCIÓN al invocar subproceso: " + ex.GetType().FullName + " - " + ex.Message + "\n" + ex.StackTrace);
-                MessageBox.Show(
+                ShowErrorMessage(
                     "Error al iniciar DictaMeeting:\n\n" + ex.Message,
-                    "DictaMeeting — Error",
-                    MessageBoxButtons.OK,
-                    MessageBoxIcon.Error);
+                    "DictaMeeting — Error");
             }
         }
 

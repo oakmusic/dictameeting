@@ -1451,7 +1451,10 @@ public partial class MainViewModel : ObservableObject
         get
         {
             var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
-            return version != null ? $"Versión {version.Major}.{version.Minor}.{version.Build}" : "Versión 1.5.4";
+            if (version == null) return "Versión 1.5.4 r2";
+            return version.Revision > 0
+                ? $"Versión {version.Major}.{version.Minor}.{version.Build} r{version.Revision}"
+                : $"Versión {version.Major}.{version.Minor}.{version.Build}";
         }
     }
 
@@ -1460,7 +1463,10 @@ public partial class MainViewModel : ObservableObject
         get
         {
             var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
-            return version != null ? $"v{version.Major}.{version.Minor}.{version.Build}" : "v1.5.4";
+            if (version == null) return "v1.5.4r2";
+            return version.Revision > 0
+                ? $"v{version.Major}.{version.Minor}.{version.Build}r{version.Revision}"
+                : $"v{version.Major}.{version.Minor}.{version.Build}";
         }
     }
 

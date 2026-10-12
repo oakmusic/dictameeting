@@ -13,8 +13,7 @@ $RootDir = (Get-Item $ScriptDir).Parent.FullName
 $PublishDir = Join-Path $RootDir "publish"
 $DataDir = Join-Path $PublishDir "data"
 $MeetingsDir = Join-Path $PublishDir "Meetings"
-$LauncherSrc = Join-Path $RootDir "src\DictaMeeting.Launcher\Launcher.cs"
-$LauncherManifest = Join-Path $RootDir "src\DictaMeeting.Launcher\app.manifest"
+$LauncherProject = Join-Path $RootDir "src\DictaMeeting.Launcher\DictaMeeting.Launcher.csproj"
 $AppIcon = Join-Path $RootDir "src\DictaMeeting.App\Resources\app.ico"
 $ProjectFile = Join-Path $RootDir "src\DictaMeeting.App\DictaMeeting.App.csproj"
 
@@ -46,10 +45,21 @@ if ($LASTEXITCODE -ne 0) {
     Write-Error "Fallo dotnet publish"
 }
 
-# Limpieza de artefactos innecesarios (createdump, pdb, lib)
-$DumpExe = Join-Path $DataDir "createdump.exe"
-if (Test-Path $DumpExe) {
-    Remove-Item $DumpExe -Force -ErrorAction SilentlyContinue
+# Limpieza de artefactos de diagnóstico del runtime .NET que disparan falsos positivos AV/EDR
+$DiagnosticPatterns = @(
+    "createdump.exe",
+    "mscordaccore.dll",
+    "mscordaccore_*.dll",
+    "mscordbi.dll",
+    "clrgcexp.dll",
+    "Microsoft.DiaSymReader.Native.*.dll"
+)
+foreach ($pattern in $DiagnosticPatterns) {
+    Get-ChildItem -Path $DataDir -Filter $pattern -ErrorAction SilentlyContinue |
+        ForEach-Object {
+            Write-Host "    Eliminando artefacto de diagnostico: $($_.Name)" -ForegroundColor DarkGray
+            Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue
+        }
 }
 Get-ChildItem -Path $DataDir -Filter "*.pdb" | Remove-Item -Force -ErrorAction SilentlyContinue
 Get-ChildItem -Path $DataDir -Filter "*.lib" | Remove-Item -Force -ErrorAction SilentlyContinue
@@ -111,29 +121,22 @@ if (Test-Path $NativeWinX64) {
     }
 }
 
-# 6. Compilar lanzador raiz con icono y manifiesto
-Write-Host "[3/4] Compilando lanzador raiz 'DictaMeeting.exe' con manifiesto Win32..." -ForegroundColor Yellow
-$CscExe = "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
-if (-not (Test-Path $CscExe)) {
-    $CscExe = "C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe"
-}
-$ExePath = Join-Path $PublishDir "DictaMeeting.exe"
-$CscArgs = @(
-    "/target:winexe",
-    "/optimize+",
-    "/platform:x64",
-    "/win32icon:$AppIcon"
-)
-if (Test-Path $LauncherManifest) {
-    $CscArgs += "/win32manifest:$LauncherManifest"
-}
-$CscArgs += "/out:$ExePath"
-$CscArgs += "$LauncherSrc"
-
-& $CscExe $CscArgs
-if ($LASTEXITCODE -ne 0 -or -not (Test-Path $ExePath)) {
+# 6. Compilar lanzador raiz con .NET SDK moderno (PE con metadatos Win32 completos)
+Write-Host "[3/4] Compilando lanzador raiz 'DictaMeeting.exe' con .NET SDK..." -ForegroundColor Yellow
+$LauncherProject = Join-Path $RootDir "src\DictaMeeting.Launcher\DictaMeeting.Launcher.csproj"
+$LauncherPublishDir = Join-Path $PublishDir "launcher-temp"
+& dotnet publish $LauncherProject -c $Configuration -r $Runtime --self-contained true -p:PublishReadyToRun=false -p:PublishSingleFile=true -o $LauncherPublishDir --nologo
+if ($LASTEXITCODE -ne 0) {
     Write-Error "Fallo compilacion del lanzador"
 }
+$ExePath = Join-Path $PublishDir "DictaMeeting.exe"
+$LauncherBin = Join-Path $LauncherPublishDir "DictaMeeting.exe"
+if (Test-Path $LauncherBin) {
+    Copy-Item $LauncherBin -Destination $ExePath -Force
+} else {
+    Write-Error "No se encontro el binario del lanzador en: $LauncherBin"
+}
+Remove-Item $LauncherPublishDir -Recurse -Force -ErrorAction SilentlyContinue
 
 # 7. Finalizar
 Write-Host "[4/4] Finalizando..." -ForegroundColor Yellow
