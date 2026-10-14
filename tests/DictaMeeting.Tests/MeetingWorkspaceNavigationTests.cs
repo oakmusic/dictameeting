@@ -18,7 +18,7 @@ namespace DictaMeeting.Tests;
 
 public class MeetingWorkspaceNavigationTests
 {
-    private class InMemoryRepo : IMeetingRepository
+    internal class InMemoryRepo : IMeetingRepository
     {
         public List<Meeting> Meetings { get; } = new();
 
@@ -47,7 +47,7 @@ public class MeetingWorkspaceNavigationTests
         public string GetAudioFilePath(Meeting meeting) => Path.Combine(GetMeetingDirectoryPath(meeting), "audio.wav");
     }
 
-    private (MainViewModel vm, InMemoryRepo repo, MeetingService meetingService) CreateTestFixture()
+    internal static (MainViewModel vm, InMemoryRepo repo, MeetingService meetingService) CreateTestFixture()
     {
         var tempFile = Path.Combine(Path.GetTempPath(), $"vm_nav_test_{Guid.NewGuid():N}.json");
         var userSettingsService = new UserSettingsService(tempFile);

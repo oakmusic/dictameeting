@@ -8,6 +8,7 @@
         xmlns:controls="clr-namespace:DictaMeeting.App.Controls"
         xmlns:enums="clr-namespace:DictaMeeting.Meetings.Enums;assembly=DictaMeeting.Meetings"
         xmlns:loc="clr-namespace:DictaMeeting.App.Markup"
+        xmlns:md="clr-namespace:Markdig.Wpf;assembly=Markdig.Wpf"
         mc:Ignorable="d"
         Title="{loc:Loc App_Title}"
         Icon="Resources/app.ico"
@@ -67,7 +68,7 @@
                                            VerticalAlignment="Center"
                                            Margin="0,-1,10,0" />
                                 <Border Background="{DynamicResource AccentLightBrush}" BorderBrush="{DynamicResource AccentPrimaryBrush}" BorderThickness="1" CornerRadius="6" Padding="6,2" Margin="0,0,12,0" VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding AppVersionShortText, FallbackValue='v1.5.4r2'}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AccentPrimaryBrush}" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding AppVersionShortText, FallbackValue='v1.5.5'}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AccentPrimaryBrush}" VerticalAlignment="Center" />
                                 </Border>
 
                                 <!-- Status Pill with pulsing dot (Control Idle) -->
@@ -1241,74 +1242,103 @@
                                 </Grid.RowDefinitions>
 
                                 <!-- Header Columna Derecha: Segmented Control [ Resumen ] / [ Acta con IA ] -->
-                                <Border Grid.Row="0" Margin="0,0,0,10" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,0,0,1" Padding="0,0,0,8" MinHeight="38">
+                                <Border Grid.Row="0" Margin="0,-4,0,10" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="0,0,0,1" Padding="0,0,0,8" MinHeight="38">
                                     <Grid VerticalAlignment="Center">
                                         <!-- Apple Segmented Control para alternar entre Resumen y Acta en el Workspace -->
-                                        <Border HorizontalAlignment="Left" Background="{DynamicResource SegmentBgBrush}" CornerRadius="8" Padding="3">
-                                            <StackPanel Orientation="Horizontal">
-                                                <!-- Pestaña 0: Resumen -->
-                                                <Button Command="{Binding SelectWorkspaceRightTab0Command}" Cursor="Hand" BorderThickness="0" Padding="12,5">
-                                                    <Button.Style>
-                                                        <Style TargetType="Button">
-                                                            <Setter Property="Background" Value="Transparent" />
-                                                            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
-                                                            <Setter Property="FontWeight" Value="Medium" />
-                                                            <Setter Property="FontSize" Value="12" />
-                                                            <Setter Property="Template">
-                                                                <Setter.Value>
-                                                                    <ControlTemplate TargetType="Button">
-                                                                        <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
-                                                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                                                <Path Data="{StaticResource GeoSparkle}" Fill="#8B5CF6" Width="11" Height="11" Stretch="Uniform" Margin="0,0,6,0" VerticalAlignment="Center" />
-                                                                                <TextBlock Text="{loc:Loc Summary_Tab}" FontWeight="{TemplateBinding FontWeight}" Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center" />
-                                                                            </StackPanel>
-                                                                        </Border>
-                                                                        <ControlTemplate.Triggers>
-                                                                            <DataTrigger Binding="{Binding WorkspaceRightTab}" Value="0">
-                                                                                <Setter TargetName="bd" Property="Background" Value="{DynamicResource SegmentSelectedBrush}" />
-                                                                                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-                                                                                <Setter Property="FontWeight" Value="Bold" />
-                                                                            </DataTrigger>
-                                                                        </ControlTemplate.Triggers>
-                                                                    </ControlTemplate>
-                                                                </Setter.Value>
-                                                            </Setter>
-                                                        </Style>
-                                                    </Button.Style>
-                                                </Button>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                            <Border Background="{DynamicResource SegmentBgBrush}" CornerRadius="8" Padding="3">
+                                                <UniformGrid Rows="1" Columns="2">
+                                                    <!-- Pestaña 0: Resumen -->
+                                                    <Button Command="{Binding SelectWorkspaceRightTab0Command}" Cursor="Hand" BorderThickness="0" Padding="12,5" Margin="0,0,2,0">
+                                                        <Button.Style>
+                                                            <Style TargetType="Button">
+                                                                <Setter Property="Background" Value="Transparent" />
+                                                                <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+                                                                <Setter Property="FontWeight" Value="Medium" />
+                                                                <Setter Property="FontSize" Value="12" />
+                                                                <Setter Property="Template">
+                                                                    <Setter.Value>
+                                                                        <ControlTemplate TargetType="Button">
+                                                                            <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                                                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                                                    <Path Data="{StaticResource GeoSparkle}" Fill="#8B5CF6" Width="11" Height="11" Stretch="Uniform" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                                                                    <TextBlock Text="{loc:Loc Summary_Tab}" FontWeight="{TemplateBinding FontWeight}" Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center" />
+                                                                                </StackPanel>
+                                                                            </Border>
+                                                                            <ControlTemplate.Triggers>
+                                                                                <DataTrigger Binding="{Binding WorkspaceRightTab}" Value="0">
+                                                                                    <Setter TargetName="bd" Property="Background" Value="{DynamicResource SegmentSelectedBrush}" />
+                                                                                    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                                                                                    <Setter Property="FontWeight" Value="Bold" />
+                                                                                </DataTrigger>
+                                                                            </ControlTemplate.Triggers>
+                                                                        </ControlTemplate>
+                                                                    </Setter.Value>
+                                                                </Setter>
+                                                            </Style>
+                                                        </Button.Style>
+                                                    </Button>
 
-                                                <!-- Pestaña 1: Acta -->
-                                                <Button Command="{Binding SelectWorkspaceRightTab1Command}" Cursor="Hand" BorderThickness="0" Padding="12,5" Margin="4,0,0,0">
-                                                    <Button.Style>
-                                                        <Style TargetType="Button">
-                                                            <Setter Property="Background" Value="Transparent" />
-                                                            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
-                                                            <Setter Property="FontWeight" Value="Medium" />
-                                                            <Setter Property="FontSize" Value="12" />
-                                                            <Setter Property="Template">
-                                                                <Setter.Value>
-                                                                    <ControlTemplate TargetType="Button">
-                                                                        <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
-                                                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                                                <Path Data="{StaticResource GeoLightning}" Fill="#F59E0B" Width="11" Height="11" Stretch="Uniform" Margin="0,0,6,0" VerticalAlignment="Center" />
-                                                                                <TextBlock Text="{loc:Loc Minutes_Tab}" FontWeight="{TemplateBinding FontWeight}" Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center" />
-                                                                            </StackPanel>
-                                                                        </Border>
-                                                                        <ControlTemplate.Triggers>
-                                                                            <DataTrigger Binding="{Binding WorkspaceRightTab}" Value="1">
-                                                                                <Setter TargetName="bd" Property="Background" Value="{DynamicResource SegmentSelectedBrush}" />
-                                                                                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-                                                                                <Setter Property="FontWeight" Value="Bold" />
-                                                                            </DataTrigger>
-                                                                        </ControlTemplate.Triggers>
-                                                                    </ControlTemplate>
-                                                                </Setter.Value>
-                                                            </Setter>
-                                                        </Style>
-                                                    </Button.Style>
-                                                </Button>
-                                            </StackPanel>
-                                        </Border>
+                                                    <!-- Pestaña 1: Acta -->
+                                                    <Button Command="{Binding SelectWorkspaceRightTab1Command}" Cursor="Hand" BorderThickness="0" Padding="12,5" Margin="2,0,0,0">
+                                                        <Button.Style>
+                                                            <Style TargetType="Button">
+                                                                <Setter Property="Background" Value="Transparent" />
+                                                                <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+                                                                <Setter Property="FontWeight" Value="Medium" />
+                                                                <Setter Property="FontSize" Value="12" />
+                                                                <Setter Property="Template">
+                                                                    <Setter.Value>
+                                                                        <ControlTemplate TargetType="Button">
+                                                                            <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                                                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                                                    <Path Data="{StaticResource GeoLightning}" Fill="#F59E0B" Width="11" Height="11" Stretch="Uniform" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                                                                    <TextBlock Text="{loc:Loc Minutes_Tab}" FontWeight="{TemplateBinding FontWeight}" Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center" />
+                                                                                </StackPanel>
+                                                                            </Border>
+                                                                            <ControlTemplate.Triggers>
+                                                                                <DataTrigger Binding="{Binding WorkspaceRightTab}" Value="1">
+                                                                                    <Setter TargetName="bd" Property="Background" Value="{DynamicResource SegmentSelectedBrush}" />
+                                                                                    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                                                                                    <Setter Property="FontWeight" Value="Bold" />
+                                                                                </DataTrigger>
+                                                                            </ControlTemplate.Triggers>
+                                                                        </ControlTemplate>
+                                                                    </Setter.Value>
+                                                                </Setter>
+                                                            </Style>
+                                                        </Button.Style>
+                                                    </Button>
+                                                </UniformGrid>
+                                            </Border>
+
+                                            <!-- Selector de versiones de acta (desplegable compacto integrado en la cabecera) -->
+                                            <Grid Margin="10,0,0,0" VerticalAlignment="Center">
+                                                <Grid.Style>
+                                                    <Style TargetType="Grid">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                        <Style.Triggers>
+                                                            <MultiDataTrigger>
+                                                                <MultiDataTrigger.Conditions>
+                                                                    <Condition Binding="{Binding WorkspaceRightTab}" Value="1" />
+                                                                    <Condition Binding="{Binding HasGeneratedActa}" Value="True" />
+                                                                </MultiDataTrigger.Conditions>
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                            </MultiDataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Grid.Style>
+
+                                                <ComboBox ItemsSource="{Binding AvailableActaVersions}"
+                                                          SelectedItem="{Binding SelectedActaVersion}"
+                                                          DisplayMemberPath="DisplayName"
+                                                          Height="28"
+                                                          MinWidth="220"
+                                                          MaxWidth="390"
+                                                          FontSize="11.5"
+                                                          VerticalAlignment="Center" />
+                                            </Grid>
+                                        </StackPanel>
 
                                         <!-- Indicador de IA en actualización -->
                                         <Border Visibility="{Binding IsLiveSummaryGenerating, Converter={StaticResource BoolToVisConverter}}" Background="{DynamicResource AccentLightBrush}" CornerRadius="10" Padding="8,2" HorizontalAlignment="Right" VerticalAlignment="Center">
@@ -1433,37 +1463,153 @@
                                                 <RowDefinition Height="*" />
                                             </Grid.RowDefinitions>
 
-                                            <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,8">
-                                                <Button Style="{StaticResource GhostButton}" Command="{Binding CopyActaToClipboardCommand}" Height="28" Padding="8,0" Margin="0,0,6,0" ToolTip="{loc:Loc Minutes_Copy_Tooltip}">
-                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                                        <TextBlock Text="📋" FontSize="11" Margin="0,0,4,0" VerticalAlignment="Center" />
-                                                        <TextBlock Text="{loc:Loc Common_Copy}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
-                                                    </StackPanel>
-                                                </Button>
-                                                <Button Style="{StaticResource GhostButton}" Command="{Binding ExportActaMarkdownCommand}" Height="28" Padding="8,0" Margin="0,0,6,0" ToolTip="{loc:Loc Minutes_Save_Md_Tooltip}">
-                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                                        <TextBlock Text="💾" FontSize="11" Margin="0,0,4,0" VerticalAlignment="Center" />
-                                                        <TextBlock Text="{loc:Loc Minutes_Save_Md}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
-                                                    </StackPanel>
-                                                </Button>
-                                                <Button Style="{StaticResource PrimaryButton}" Command="{Binding OpenActaDialogCommand}" Height="28" Padding="10,0" ToolTip="{loc:Loc Minutes_Regenerate_Tooltip}">
-                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                                        <Path Data="{StaticResource GeoLightning}" Fill="#FDE047" Width="10" Height="10" Stretch="Uniform" Margin="0,0,5,0" VerticalAlignment="Center" />
-                                                        <TextBlock Text="{loc:Loc Minutes_Regenerate_Button}" FontSize="11" VerticalAlignment="Center" />
-                                                    </StackPanel>
-                                                </Button>
-                                            </StackPanel>
+                                            <Grid Grid.Row="0" Margin="0,0,0,8">
+                                                <!-- Left: View/Edit Toggle & Unsaved Status / Actions -->
+                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                                    <!-- Segmented Mode Switch: [ 👁 Lectura ] [ ✏ Edición ] -->
+                                                    <Border Background="{DynamicResource SegmentBgBrush}" CornerRadius="6" Padding="2" Margin="0,0,8,0">
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <Button Command="{Binding ToggleActaEditModeCommand}" Cursor="Hand" BorderThickness="0" Padding="8,4">
+                                                                <Button.Style>
+                                                                    <Style TargetType="Button">
+                                                                        <Setter Property="Background" Value="Transparent" />
+                                                                        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+                                                                        <Setter Property="FontSize" Value="11" />
+                                                                        <Setter Property="FontWeight" Value="Medium" />
+                                                                        <Setter Property="Template">
+                                                                            <Setter.Value>
+                                                                                <ControlTemplate TargetType="Button">
+                                                                                    <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                                                                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                                                            <TextBlock Text="👁" FontSize="11" Margin="0,0,4,0" VerticalAlignment="Center" />
+                                                                                            <TextBlock Text="{loc:Loc Acta_Mode_View}" FontWeight="{TemplateBinding FontWeight}" Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center" />
+                                                                                        </StackPanel>
+                                                                                    </Border>
+                                                                                    <ControlTemplate.Triggers>
+                                                                                        <DataTrigger Binding="{Binding IsActaEditMode}" Value="False">
+                                                                                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource SegmentSelectedBrush}" />
+                                                                                            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                                                                                            <Setter Property="FontWeight" Value="Bold" />
+                                                                                        </DataTrigger>
+                                                                                    </ControlTemplate.Triggers>
+                                                                                </ControlTemplate>
+                                                                            </Setter.Value>
+                                                                        </Setter>
+                                                                    </Style>
+                                                                </Button.Style>
+                                                            </Button>
+                                                            <Button Command="{Binding ToggleActaEditModeCommand}" Cursor="Hand" BorderThickness="0" Padding="8,4" Margin="2,0,0,0">
+                                                                <Button.Style>
+                                                                    <Style TargetType="Button">
+                                                                        <Setter Property="Background" Value="Transparent" />
+                                                                        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+                                                                        <Setter Property="FontSize" Value="11" />
+                                                                        <Setter Property="FontWeight" Value="Medium" />
+                                                                        <Setter Property="Template">
+                                                                            <Setter.Value>
+                                                                                <ControlTemplate TargetType="Button">
+                                                                                    <Border x:Name="bd" Background="{TemplateBinding Background}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                                                                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                                                            <TextBlock Text="✏" FontSize="11" Margin="0,0,4,0" VerticalAlignment="Center" />
+                                                                                            <TextBlock Text="{loc:Loc Acta_Mode_Edit}" FontWeight="{TemplateBinding FontWeight}" Foreground="{TemplateBinding Foreground}" VerticalAlignment="Center" />
+                                                                                        </StackPanel>
+                                                                                    </Border>
+                                                                                    <ControlTemplate.Triggers>
+                                                                                        <DataTrigger Binding="{Binding IsActaEditMode}" Value="True">
+                                                                                            <Setter TargetName="bd" Property="Background" Value="{DynamicResource SegmentSelectedBrush}" />
+                                                                                            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                                                                                            <Setter Property="FontWeight" Value="Bold" />
+                                                                                        </DataTrigger>
+                                                                                    </ControlTemplate.Triggers>
+                                                                                </ControlTemplate>
+                                                                            </Setter.Value>
+                                                                        </Setter>
+                                                                    </Style>
+                                                                </Button.Style>
+                                                            </Button>
+                                                        </StackPanel>
+                                                    </Border>
 
-                                            <Border Grid.Row="1" Background="{DynamicResource CardItemBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="8" Padding="14">
+                                                    <!-- Unsaved Indicator Badge -->
+                                                    <Border Visibility="{Binding HasUnsavedActaChanges, Converter={StaticResource BoolToVisConverter}}"
+                                                            Background="#FEF3C7" BorderBrush="#F59E0B" BorderThickness="1" CornerRadius="10" Padding="8,2" Margin="0,0,6,0" VerticalAlignment="Center">
+                                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                            <Ellipse Width="6" Height="6" Fill="#D97706" Margin="0,0,4,0" VerticalAlignment="Center" />
+                                                            <TextBlock Text="{loc:Loc Acta_Unsaved_Changes_Badge}" FontSize="10.5" FontWeight="SemiBold" Foreground="#92400E" VerticalAlignment="Center" />
+                                                        </StackPanel>
+                                                    </Border>
+
+                                                    <!-- Save Changes Button -->
+                                                    <Button Visibility="{Binding HasUnsavedActaChanges, Converter={StaticResource BoolToVisConverter}}"
+                                                            Style="{StaticResource PrimaryButton}" Command="{Binding SaveActaChangesCommand}" Height="26" Padding="8,0" Margin="0,0,4,0" VerticalAlignment="Center">
+                                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                            <TextBlock Text="✓" FontSize="11" Margin="0,0,4,0" VerticalAlignment="Center" />
+                                                            <TextBlock Text="{loc:Loc Acta_Button_SaveChanges}" FontSize="11" VerticalAlignment="Center" />
+                                                        </StackPanel>
+                                                    </Button>
+
+                                                    <!-- Discard Changes Button -->
+                                                    <Button Visibility="{Binding HasUnsavedActaChanges, Converter={StaticResource BoolToVisConverter}}"
+                                                            Style="{StaticResource GhostButton}" Command="{Binding DiscardActaChangesCommand}" Height="26" Padding="6,0" Margin="0,0,4,0" VerticalAlignment="Center">
+                                                        <TextBlock Text="{loc:Loc Acta_Button_DiscardChanges}" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" />
+                                                    </Button>
+
+                                                    <!-- Restore Original AI Content Button -->
+                                                    <Button Visibility="{Binding CanRestoreOriginalAiActa, Converter={StaticResource BoolToVisConverter}}"
+                                                            Style="{StaticResource GhostButton}" Command="{Binding RestoreOriginalAiActaCommand}" Height="26" Padding="6,0" VerticalAlignment="Center"
+                                                            ToolTip="Restaurar el contenido generado originalmente por la IA">
+                                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                            <Path Data="{StaticResource GeoSparkle}" Fill="#8B5CF6" Width="9" Height="9" Stretch="Uniform" Margin="0,0,4,0" VerticalAlignment="Center" />
+                                                            <TextBlock Text="{loc:Loc Acta_Button_RestoreOriginal}" FontSize="10.5" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                                                        </StackPanel>
+                                                    </Button>
+                                                </StackPanel>
+
+                                                <!-- Right: Actions Toolbar -->
+                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                                    <Button Style="{StaticResource GhostButton}" Command="{Binding CopyActaToClipboardCommand}" Height="28" Padding="8,0" Margin="0,0,6,0" ToolTip="{loc:Loc Minutes_Copy_Tooltip}">
+                                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                            <TextBlock Text="📋" FontSize="11" Margin="0,0,4,0" VerticalAlignment="Center" />
+                                                            <TextBlock Text="{loc:Loc Common_Copy}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                                                        </StackPanel>
+                                                    </Button>
+                                                    <Button Style="{StaticResource GhostButton}" Command="{Binding ExportActaMarkdownCommand}" Height="28" Padding="8,0" Margin="0,0,6,0" ToolTip="{loc:Loc Minutes_Save_Md_Tooltip}">
+                                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                            <TextBlock Text="💾" FontSize="11" Margin="0,0,4,0" VerticalAlignment="Center" />
+                                                            <TextBlock Text="{loc:Loc Minutes_Save_Md}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                                                        </StackPanel>
+                                                    </Button>
+                                                    <Button Style="{StaticResource PrimaryButton}" Command="{Binding OpenActaDialogCommand}" Height="28" Padding="10,0" ToolTip="{loc:Loc Minutes_Regenerate_Tooltip}">
+                                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                            <Path Data="{StaticResource GeoLightning}" Fill="#FDE047" Width="10" Height="10" Stretch="Uniform" Margin="0,0,5,0" VerticalAlignment="Center" />
+                                                            <TextBlock Text="{loc:Loc Minutes_Regenerate_Button}" FontSize="11" VerticalAlignment="Center" />
+                                                        </StackPanel>
+                                                    </Button>
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <!-- Reading View (Rich Rendered Markdown) -->
+                                            <Border Grid.Row="1" Background="{DynamicResource CardItemBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="8" Padding="16"
+                                                    Visibility="{Binding IsActaEditMode, Converter={StaticResource InverseBoolToVisConverter}}">
+                                                <md:MarkdownViewer Markdown="{Binding GeneratedActaMarkdown}"
+                                                                   Background="Transparent"
+                                                                   BorderThickness="0"
+                                                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                                                   FontFamily="{DynamicResource MainFontFamily}" />
+                                            </Border>
+
+                                            <!-- Editing View (Raw Markdown Monospace Editor) -->
+                                            <Border Grid.Row="1" Background="{DynamicResource CardItemBgBrush}" BorderBrush="{DynamicResource BorderFocusBrush}" BorderThickness="1.5" CornerRadius="8" Padding="14"
+                                                    Visibility="{Binding IsActaEditMode, Converter={StaticResource BoolToVisConverter}}">
                                                 <ScrollViewer VerticalScrollBarVisibility="Auto">
-                                                    <TextBox Text="{Binding GeneratedActaMarkdown, Mode=OneWay}"
+                                                    <TextBox Text="{Binding EditableActaMarkdown, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                              Background="Transparent"
                                                              Foreground="{DynamicResource TextPrimaryBrush}"
                                                              BorderThickness="0"
-                                                             IsReadOnly="True"
                                                              FontSize="13"
-                                                             FontFamily="{DynamicResource MainFontFamily}"
+                                                             FontFamily="Consolas, Cascadia Code, Courier New"
                                                              AcceptsReturn="True"
+                                                             AcceptsTab="True"
                                                              TextWrapping="Wrap" />
                                                 </ScrollViewer>
                                             </Border>
@@ -3107,20 +3253,116 @@
                         </Grid>
                     </Border>
 
-                    <!-- Generated Markdown Viewer -->
-                    <Border Grid.Row="2" Background="{DynamicResource CardItemBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="8" Padding="14">
-                        <ScrollViewer VerticalScrollBarVisibility="Auto">
-                            <TextBox Text="{Binding GeneratedActaMarkdown, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Background="Transparent" Foreground="{DynamicResource TextPrimaryBrush}" BorderThickness="0" FontSize="13" FontFamily="{DynamicResource MainFontFamily}" AcceptsReturn="True" TextWrapping="Wrap" />
-                        </ScrollViewer>
+                    <!-- Version History Panel (replaces previous raw markdown textbox) -->
+                    <Border Grid.Row="2" Background="{DynamicResource CardItemBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="8" Padding="14" MinHeight="240">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <!-- Panel Header -->
+                            <Grid Grid.Row="0" Margin="2,0,2,10">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <Path Data="{StaticResource GeoHistory}" Fill="{DynamicResource AccentPrimaryBrush}" Width="13" Height="13" Stretch="Uniform" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="{loc:Loc Acta_Modal_History_Title}" FontSize="12.5" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                                    <Border Background="{DynamicResource BgTertiaryBrush}" CornerRadius="9" Padding="7,1" Margin="8,0,0,0" VerticalAlignment="Center"
+                                            Visibility="{Binding AvailableActaVersions.Count, Converter={StaticResource InverseEqualityToVisConverter}, ConverterParameter=0}">
+                                        <TextBlock Text="{Binding AvailableActaVersions.Count, StringFormat='{}{0}'}" FontSize="10.5" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                    </Border>
+                                </StackPanel>
+                                <TextBlock Text="{loc:Loc Acta_Modal_History_Hint}" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                            </Grid>
+
+                            <!-- Error Message for History Loading (if any) -->
+                            <Border Grid.Row="1" Background="#FEE2E2" BorderBrush="{DynamicResource DangerBrush}" BorderThickness="1" CornerRadius="6" Padding="10" Margin="0,0,0,10"
+                                    Visibility="{Binding ActaHistoryErrorMessage, Converter={StaticResource StringToVisConverter}}">
+                                <TextBlock Text="{Binding ActaHistoryErrorMessage}" Foreground="{DynamicResource DangerBrush}" FontSize="12" TextWrapping="Wrap" />
+                            </Border>
+
+                            <!-- Empty State: No versions generated yet -->
+                            <Border Grid.Row="2"
+                                    Visibility="{Binding AvailableActaVersions.Count, Converter={StaticResource EqualityToVisConverter}, ConverterParameter=0}"
+                                    HorizontalAlignment="Center" VerticalAlignment="Center" Padding="20">
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="440">
+                                    <Border Width="44" Height="44" CornerRadius="22" Background="{DynamicResource BgTertiaryBrush}" HorizontalAlignment="Center" Margin="0,0,0,12">
+                                        <Path Data="{StaticResource GeoDocument}" Fill="{DynamicResource TextMutedBrush}" Width="20" Height="20" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    <TextBlock Text="{loc:Loc Acta_Modal_History_Empty}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" LineHeight="18" />
+                                    <TextBlock Text="{loc:Loc Acta_Modal_History_Empty_Hint}" FontSize="11.5" Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center" TextAlignment="Center" TextWrapping="Wrap" Margin="0,6,0,0" LineHeight="16" />
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Version History List -->
+                            <ListBox Grid.Row="2"
+                                     ItemsSource="{Binding AvailableActaVersions}"
+                                     SelectedItem="{Binding SelectedActaVersion}"
+                                     Visibility="{Binding AvailableActaVersions.Count, Converter={StaticResource InverseEqualityToVisConverter}, ConverterParameter=0}"
+                                     Background="Transparent"
+                                     BorderThickness="0"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                     HorizontalContentAlignment="Stretch">
+                                <ListBox.ItemContainerStyle>
+                                    <Style TargetType="ListBoxItem">
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                        <Setter Property="Padding" Value="0" />
+                                        <Setter Property="Margin" Value="0,0,0,6" />
+                                        <Setter Property="Cursor" Value="Hand" />
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="ListBoxItem">
+                                                    <Border x:Name="border" HorizontalAlignment="Stretch"
+                                                            Background="{DynamicResource BgSecondaryBrush}"
+                                                            BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                                            BorderThickness="1" CornerRadius="6" Padding="12,10">
+                                                        <ContentPresenter HorizontalAlignment="Stretch" />
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource AccentHoverBrush}" />
+                                                        </Trigger>
+                                                        <Trigger Property="IsSelected" Value="True">
+                                                            <Setter TargetName="border" Property="BorderBrush" Value="{DynamicResource AccentPrimaryBrush}" />
+                                                            <Setter TargetName="border" Property="Background" Value="{DynamicResource AccentLightBrush}" />
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </ListBox.ItemContainerStyle>
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type vm:ActaVersionItemViewModel}">
+                                        <Grid HorizontalAlignment="Stretch">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <!-- Document Icon -->
+                                            <Path Grid.Column="0" Data="{StaticResource GeoDocument}" Fill="{DynamicResource AccentPrimaryBrush}" Width="13" Height="13" Stretch="Uniform" Margin="0,0,10,0" VerticalAlignment="Center" />
+
+                                            <!-- DisplayName (e.g. "English · Exhaustive · 14/10/2026 10:44" or "Español · Normal · 14/10/2026 10:43") -->
+                                            <TextBlock Grid.Column="1" Text="{Binding DisplayName}" FontSize="12.5" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+
+                                            <!-- Model / Metadata badge on the right -->
+                                            <Border Grid.Column="2" Background="{DynamicResource BgTertiaryBrush}" CornerRadius="4" Padding="6,2" Margin="10,0,0,0" VerticalAlignment="Center"
+                                                    Visibility="{Binding ModelUsed, Converter={StaticResource StringToVisConverter}}">
+                                                <TextBlock Text="{Binding ModelUsed}" FontSize="10.5" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                            </Border>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </Grid>
                     </Border>
 
                     <!-- Footer Actions -->
                     <Grid Grid.Row="3" Margin="0,14,0,0">
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                            <Button Content="{loc:Loc Acta_Button_Copy}" Style="{StaticResource SecondaryButton}" Command="{Binding CopyActaToClipboardCommand}" IsEnabled="{Binding HasGeneratedActa}" Height="36" Padding="14,0" Margin="0,0,8,0" />
-                            <Button Content="{loc:Loc Acta_Button_SaveMd}" Style="{StaticResource SecondaryButton}" Command="{Binding ExportActaMarkdownCommand}" IsEnabled="{Binding HasGeneratedActa}" Height="36" Padding="14,0" Margin="0,0,8,0" />
-                            <Button Content="{loc:Loc Acta_Button_Folder}" Style="{StaticResource SecondaryButton}" Command="{Binding OpenMeetingFolderCommand}" Height="36" Padding="14,0" />
-                        </StackPanel>
+                        <Button Content="{loc:Loc Acta_Button_Folder}" HorizontalAlignment="Left" Style="{StaticResource SecondaryButton}" Command="{Binding OpenMeetingFolderCommand}" Height="36" Padding="14,0" />
                         <Button Content="{loc:Loc Common_Close}" HorizontalAlignment="Right" Style="{StaticResource SecondaryButton}" Command="{Binding CloseActaDialogCommand}" Height="36" Padding="16,0" />
                     </Grid>
                 </Grid>

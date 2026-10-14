@@ -39,6 +39,8 @@ public partial class MainWindow : Window
             }
         };
 
+        CommandBindings.Add(new System.Windows.Input.CommandBinding(Markdig.Wpf.Commands.Hyperlink, OnMarkdownHyperlinkExecuted));
+
         Loaded += async (_, _) =>
         {
             await _viewModel.CheckFirstRunExperienceAsync();
@@ -489,6 +491,28 @@ public partial class MainWindow : Window
         if (DataContext is MainViewModel vm && sender is System.Windows.Controls.PasswordBox pb)
         {
             vm.CustomServerApiKeyInput = pb.Password;
+        }
+    }
+
+    private void OnMarkdownHyperlinkExecuted(object sender, System.Windows.Input.ExecutedRoutedEventArgs e)
+    {
+        if (e.Parameter is string urlStr && Uri.TryCreate(urlStr, UriKind.Absolute, out var uri))
+        {
+            if (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps)
+            {
+                try
+                {
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = uri.AbsoluteUri,
+                        UseShellExecute = true
+                    });
+                }
+                catch
+                {
+                    // Ignore process launch exceptions
+                }
+            }
         }
     }
 }

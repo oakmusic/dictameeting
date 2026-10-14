@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.IO;
+using DictaMeeting.App.Diagnostics;
 using DictaMeeting.Diarization.Interfaces;
 using DictaMeeting.Meetings.Enums;
 using DictaMeeting.Meetings.Interfaces;
@@ -71,6 +72,7 @@ public class MeetingProcessingService : IMeetingProcessingService
         ProcessingStatus finalStatus = ProcessingStatus.Error;
         string? finalError = null;
 
+        using var op = CrashDiagnosticTracker.BeginOperation("Meeting_BackgroundProcessing", meetingId);
         try
         {
             await _semaphore.WaitAsync(cts.Token);
@@ -314,6 +316,7 @@ public class MeetingProcessingService : IMeetingProcessingService
         catch (Exception ex)
         {
             _logger?.LogError(ex, "Error durante el procesamiento en segundo plano de la reunión {Id}.", meetingId);
+            CrashDiagnosticTracker.RecordCrashReport(ex, $"MeetingProcessingService ({meetingId})", isTerminating: false);
             try
             {
                 var meeting = await _repository.GetMeetingAsync(meetingId);
@@ -352,6 +355,7 @@ public class MeetingProcessingService : IMeetingProcessingService
 
     public async Task RecoverInterruptedJobsAsync(CancellationToken cancellationToken = default)
     {
+        using var op = CrashDiagnosticTracker.BeginOperation("Startup_RecoverInterruptedJobs");
         try
         {
             var meetings = await _repository.GetAllMeetingsAsync(cancellationToken);
@@ -363,12 +367,14 @@ public class MeetingProcessingService : IMeetingProcessingService
                     meeting.ProcessingStatusText = "Procesamiento pendiente (interrumpido).";
                     await _repository.SaveMeetingAsync(meeting, cancellationToken);
                     _logger?.LogInformation("Reunión {Id} recuperada a estado Pending tras interrupción previa.", meeting.Id);
+                    CrashDiagnosticTracker.AddBreadcrumb($"[Recuperación] Reunión {meeting.Id} restablecida a Pending tras interrupción.");
                 }
             }
         }
         catch (Exception ex)
         {
             _logger?.LogWarning(ex, "Error al recuperar reuniones pendientes o interrumpidas.");
+            CrashDiagnosticTracker.AddBreadcrumb($"[Error en RecoverInterruptedJobsAsync] {ex.Message}");
         }
     }
 

@@ -1255,6 +1255,57 @@ Do you want to change location anyway?</value>
   <data name="Acta_Detail_Exhaustiva" xml:space="preserve">
     <value>Comprehensive</value>
   </data>
+  <data name="Acta_Version_Legacy" xml:space="preserve">
+    <value>Previous version</value>
+  </data>
+  <data name="Acta_Mode_View" xml:space="preserve">
+    <value>Reading</value>
+  </data>
+  <data name="Acta_Mode_Edit" xml:space="preserve">
+    <value>Edit</value>
+  </data>
+  <data name="Acta_Button_SaveChanges" xml:space="preserve">
+    <value>Save changes</value>
+  </data>
+  <data name="Acta_Button_DiscardChanges" xml:space="preserve">
+    <value>Discard changes</value>
+  </data>
+  <data name="Acta_Button_RestoreOriginal" xml:space="preserve">
+    <value>Restore AI version</value>
+  </data>
+  <data name="Acta_Unsaved_Changes_Badge" xml:space="preserve">
+    <value>● Modified</value>
+  </data>
+  <data name="Acta_Unsaved_Prompt_Title" xml:space="preserve">
+    <value>Unsaved changes</value>
+  </data>
+  <data name="Acta_Unsaved_Prompt_Message" xml:space="preserve">
+    <value>The current minutes have unsaved changes. Do you want to save them before continuing?</value>
+  </data>
+  <data name="Acta_No_Versions" xml:space="preserve">
+    <value>No saved minutes</value>
+  </data>
+  <data name="Language_English" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="Language_Spanish" xml:space="preserve">
+    <value>Spanish</value>
+  </data>
+  <data name="Acta_Modal_History_Title" xml:space="preserve">
+    <value>Version History</value>
+  </data>
+  <data name="Acta_Modal_History_Hint" xml:space="preserve">
+    <value>Full view and editing in the 'Minutes' tab</value>
+  </data>
+  <data name="Acta_Modal_History_Empty" xml:space="preserve">
+    <value>No minutes have been generated for this meeting yet.</value>
+  </data>
+  <data name="Acta_Modal_History_Empty_Hint" xml:space="preserve">
+    <value>Configure the options above and click 'Generate Minutes with AI' to create the first version.</value>
+  </data>
+  <data name="Acta_Modal_History_Error" xml:space="preserve">
+    <value>Could not load version history.</value>
+  </data>
   <data name="Notice_Title" xml:space="preserve">
     <value>Before you begin</value>
   </data>

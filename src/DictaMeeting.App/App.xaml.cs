@@ -1,10 +1,13 @@
 using System.IO;
 using System.Net.Http;
+using System.Reflection;
 using System.Windows;
 using System.Windows.Threading;
 using DictaMeeting.AI.Interfaces;
 using DictaMeeting.AI.Models;
 using DictaMeeting.AI.Services;
+using DictaMeeting.App.Common;
+using DictaMeeting.App.Diagnostics;
 using DictaMeeting.App.Services;
 using DictaMeeting.App.ViewModels;
 using DictaMeeting.App.Views;
@@ -37,7 +40,8 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
-        LogBoot($"[App] Bootstrap iniciado. DictaMeeting v1.5.4r2 (.NET {Environment.Version}, OS: {Environment.OSVersion}, 64-bit: {Environment.Is64BitProcess})");
+        var version = typeof(App).Assembly.GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "1.5.5";
+        LogBoot($"[App] Iniciando DictaMeeting v{version} (.NET {Environment.Version}, OS: {Environment.OSVersion}, 64-bit: {Environment.Is64BitProcess})");
 
         // Prevenir cierre prematuro de la aplicación durante la transición SplashWindow -> MainWindow
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
@@ -48,7 +52,6 @@ public partial class App : Application
             // 1. Mostrar SplashWindow inmediatamente (fondo y ondas activas; elementos aún no visibles)
             splashWindow = new SplashWindow();
             splashWindow.Show();
-            LogBoot("[App] SplashWindow desplegada.");
 
             // Ceder al despachador para asegurar que el fondo se pinte en pantalla
             await Dispatcher.Yield(DispatcherPriority.Render);
@@ -59,19 +62,21 @@ public partial class App : Application
             var services = new ServiceCollection();
             ConfigureServices(services);
             _serviceProvider = services.BuildServiceProvider();
-            LogBoot("[App] Inyección de dependencias inicializada.");
 
             SetupExceptionHandling();
 
             var processingService = _serviceProvider.GetRequiredService<IMeetingProcessingService>();
-            _ = processingService.RecoverInterruptedJobsAsync();
+            processingService.RecoverInterruptedJobsAsync().SafeFireAndForget(
+                _serviceProvider.GetService<ILogger<App>>(),
+                "Startup_RecoverInterruptedJobs");
 
             var vocabularyService = _serviceProvider.GetRequiredService<IVocabularyService>();
-            _ = vocabularyService.LoadAsync();
+            vocabularyService.LoadAsync().SafeFireAndForget(
+                _serviceProvider.GetService<ILogger<App>>(),
+                "Startup_LoadVocabulary");
 
             // Instanciar MainWindow (precarga en memoria del árbol visual y ViewModel)
             var mainWindow = _serviceProvider.GetRequiredService<MainWindow>();
-            LogBoot("[App] MainWindow instanciada con éxito.");
 
             // Ceder un ciclo al despachador para procesar cualquier render o evento residual de precarga
             await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
@@ -89,7 +94,7 @@ public partial class App : Application
             MainWindow = mainWindow;
             mainWindow.Show();
             mainWindow.Activate();
-            LogBoot("[App] MainWindow visible. Arranque completado con éxito.");
+            LogBoot("[App] Arranque completado con éxito.");
 
             // Restaurar el modo de apagado para que la app se cierre al cerrar MainWindow
             ShutdownMode = ShutdownMode.OnMainWindowClose;
@@ -106,12 +111,13 @@ public partial class App : Application
             }
 
             LogBoot($"[App] ERROR CRÍTICO EN BOOTSTRAP: {ex.GetType().FullName} - {ex.Message}\n{ex.StackTrace}");
+            var reportPath = CrashDiagnosticTracker.RecordCrashReport(ex, "App.OnStartup (Bootstrap Fatal)", isTerminating: true);
 
             var logger = _serviceProvider?.GetService<ILogger<App>>();
             logger?.LogCritical(ex, "Error crítico durante el inicio de la aplicación.");
 
             MessageBox.Show(
-                $"Ha ocurrido un error inesperado al iniciar DictaMeeting:\n\n{ex.Message}\n\nPuede consultar los detalles en los logs locales.",
+                $"Ha ocurrido un error inesperado al iniciar DictaMeeting:\n\n{ex.Message}\n\nInforme guardado en:\n{reportPath ?? "logs locales"}",
                 "DictaMeeting — Error de inicio",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
@@ -124,66 +130,115 @@ public partial class App : Application
     {
         DispatcherUnhandledException += (s, args) =>
         {
-            LogBoot($"[App] ERROR NO CONTROLADO EN DISPATCHER: {args.Exception?.GetType().FullName} - {args.Exception?.Message}\n{args.Exception?.StackTrace}");
+            var ex = args.Exception;
+            var isFatal = IsFatalException(ex);
+
+            var reportPath = CrashDiagnosticTracker.RecordCrashReport(
+                ex,
+                "Application.DispatcherUnhandledException",
+                isTerminating: isFatal);
+
+            LogBoot($"[App] ERROR NO CONTROLADO EN DISPATCHER: {ex?.GetType().FullName} - {ex?.Message}\n{ex?.StackTrace}");
             var logger = _serviceProvider?.GetService<ILogger<App>>();
-            logger?.LogCritical(args.Exception, "Excepción no controlada en el despachador de la interfaz de usuario.");
-            MessageBox.Show(
-                $"Ha ocurrido un error inesperado:\n\n{args.Exception?.Message}\n\nPuede consultar los detalles en los logs locales.",
-                "DictaMeeting — Error",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
-            args.Handled = true;
+            logger?.LogCritical(ex, "Excepción no controlada en el despachador de la interfaz de usuario.");
+
+            try
+            {
+                var msg = $"Ha ocurrido un error inesperado:\n\n{ex?.Message}\n\n";
+                if (!string.IsNullOrEmpty(reportPath))
+                {
+                    msg += $"Informe de diagnóstico generado en:\n{reportPath}\n\n";
+                }
+                msg += isFatal
+                    ? "El fallo es crítico y el proceso debe cerrarse para proteger los datos."
+                    : "¿Desea intentar continuar trabajando?";
+
+                var result = MessageBox.Show(
+                    msg,
+                    "DictaMeeting — Error",
+                    isFatal ? MessageBoxButton.OK : MessageBoxButton.YesNo,
+                    MessageBoxImage.Error);
+
+                if (!isFatal && result == MessageBoxResult.Yes)
+                {
+                    args.Handled = true;
+                    return;
+                }
+            }
+            catch
+            {
+                // Si la presentación de UI falla durante el error, permitir salida controlada
+            }
+
+            args.Handled = false;
         };
 
         AppDomain.CurrentDomain.UnhandledException += (s, args) =>
         {
             var ex = args.ExceptionObject as Exception;
-            LogBoot($"[App] ERROR NO CONTROLADO EN APPDOMAIN: {ex?.GetType().FullName} - {ex?.Message}\n{ex?.StackTrace}");
+            var isTerminating = args.IsTerminating;
+
+            var reportPath = CrashDiagnosticTracker.RecordCrashReport(
+                ex,
+                "AppDomain.CurrentDomain.UnhandledException",
+                isTerminating: isTerminating);
+
+            LogBoot($"[App] ERROR NO CONTROLADO EN APPDOMAIN (Terminating={isTerminating}): {ex?.GetType().FullName} - {ex?.Message}\n{ex?.StackTrace}");
             var logger = _serviceProvider?.GetService<ILogger<App>>();
-            logger?.LogCritical(ex, "Excepción no controlada en el dominio de la aplicación.");
-            MessageBox.Show(
-                $"Ha ocurrido un error inesperado:\n\n{ex?.Message}\n\nPuede consultar los detalles en los logs locales.",
-                "DictaMeeting — Error",
-                MessageBoxButton.OK,
-                MessageBoxImage.Error);
+            logger?.LogCritical(ex, "Excepción no controlada en el dominio de la aplicación (Terminating={Terminating}).", isTerminating);
+
+            // Si el proceso está terminando forzosamente, evitar bloquear con MessageBox modal
+            if (!isTerminating)
+            {
+                try
+                {
+                    MessageBox.Show(
+                        $"Ha ocurrido un error inesperado:\n\n{ex?.Message}\n\nPuede consultar el informe en:\n{reportPath ?? "logs locales"}",
+                        "DictaMeeting — Error",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Error);
+                }
+                catch { }
+            }
         };
+
+        TaskScheduler.UnobservedTaskException += (s, args) =>
+        {
+            var ex = args.Exception;
+            var reportPath = CrashDiagnosticTracker.RecordCrashReport(
+                ex,
+                "TaskScheduler.UnobservedTaskException",
+                isTerminating: false);
+
+            LogBoot($"[App] EXCEPCIÓN NO OBSERVADA EN TASK: {ex?.GetType().FullName} - {ex?.Message}\n{ex?.StackTrace}");
+            var logger = _serviceProvider?.GetService<ILogger<App>>();
+            logger?.LogError(ex, "Excepción asíncrona no observada en TaskScheduler.");
+
+            // Marcar como observada para evitar que termine el proceso en el hilo del finalizador
+            args.SetObserved();
+        };
+    }
+
+    private static bool IsFatalException(Exception? ex)
+    {
+        if (ex == null) return false;
+        return ex is OutOfMemoryException
+            || ex is StackOverflowException
+            || ex is AccessViolationException;
     }
 
     private static void LogBoot(string message)
     {
-        try
-        {
-            var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            var logDir = System.IO.Path.Combine(localAppData, "DictaMeeting", "logs");
-            if (!System.IO.Directory.Exists(logDir))
-            {
-                System.IO.Directory.CreateDirectory(logDir);
-            }
-            var logFile = System.IO.Path.Combine(logDir, "boot.log");
-
-            // Rotación simple si supera 2 MB
-            if (System.IO.File.Exists(logFile) && new System.IO.FileInfo(logFile).Length > 2 * 1024 * 1024)
-            {
-                var oldFile = System.IO.Path.Combine(logDir, "boot.old.log");
-                System.IO.File.Delete(oldFile);
-                System.IO.File.Move(logFile, oldFile);
-            }
-
-            var line = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] {message}{Environment.NewLine}";
-            System.IO.File.AppendAllText(logFile, line);
-        }
-        catch
-        {
-            // El logging de diagnóstico nunca debe propagar excepciones
-        }
+        BootLogger.LogBoot(message);
     }
 
     private static void ConfigureServices(IServiceCollection services)
     {
-        // Logging
+        // Logging persistente con rotación (app.log) y consola
         services.AddLogging(builder =>
         {
             builder.AddConsole();
+            builder.AddProvider(new DictaMeetingFileLoggerProvider());
             builder.SetMinimumLevel(LogLevel.Information);
         });
 

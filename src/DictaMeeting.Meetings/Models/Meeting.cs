@@ -31,6 +31,29 @@ public class Meeting
     public string? Notes { get; set; }
     public string? ActaMarkdown { get; set; }
 
+    /// <summary>
+    /// Historial de todas las versiones de actas generadas o editadas para esta reunión.
+    /// </summary>
+    public List<MeetingActaVersion> ActaVersions { get; set; } = new();
+
+    /// <summary>
+    /// Identificador de la versión de acta actualmente seleccionada.
+    /// </summary>
+    public string? SelectedActaVersionId { get; set; }
+
+    /// <summary>
+    /// Obtiene la versión de acta activa actualmente seleccionada, o la más reciente si no hay ninguna explícita.
+    /// </summary>
+    public MeetingActaVersion? GetActiveActaVersion()
+    {
+        if (!string.IsNullOrEmpty(SelectedActaVersionId))
+        {
+            var found = ActaVersions.FirstOrDefault(v => v.Id == SelectedActaVersionId);
+            if (found != null) return found;
+        }
+        return ActaVersions.OrderByDescending(v => v.CreatedAt).FirstOrDefault();
+    }
+
     public List<string> ExpectedParticipants { get; set; } = new();
     public List<Speaker> Participants { get; set; } = new();
     public List<TranscriptSegment> Transcript { get; set; } = new();

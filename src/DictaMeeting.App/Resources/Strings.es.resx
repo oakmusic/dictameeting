@@ -1255,6 +1255,57 @@
   <data name="Acta_Detail_Exhaustiva" xml:space="preserve">
     <value>Exhaustiva</value>
   </data>
+  <data name="Acta_Version_Legacy" xml:space="preserve">
+    <value>Versión anterior</value>
+  </data>
+  <data name="Acta_Mode_View" xml:space="preserve">
+    <value>Lectura</value>
+  </data>
+  <data name="Acta_Mode_Edit" xml:space="preserve">
+    <value>Editar</value>
+  </data>
+  <data name="Acta_Button_SaveChanges" xml:space="preserve">
+    <value>Guardar cambios</value>
+  </data>
+  <data name="Acta_Button_DiscardChanges" xml:space="preserve">
+    <value>Descartar cambios</value>
+  </data>
+  <data name="Acta_Button_RestoreOriginal" xml:space="preserve">
+    <value>Restaurar versión IA</value>
+  </data>
+  <data name="Acta_Unsaved_Changes_Badge" xml:space="preserve">
+    <value>● Modificado</value>
+  </data>
+  <data name="Acta_Unsaved_Prompt_Title" xml:space="preserve">
+    <value>Cambios sin guardar</value>
+  </data>
+  <data name="Acta_Unsaved_Prompt_Message" xml:space="preserve">
+    <value>El acta actual tiene cambios sin guardar. ¿Deseas guardarlos antes de continuar?</value>
+  </data>
+  <data name="Acta_No_Versions" xml:space="preserve">
+    <value>Sin actas guardadas</value>
+  </data>
+  <data name="Language_English" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="Language_Spanish" xml:space="preserve">
+    <value>Español</value>
+  </data>
+  <data name="Acta_Modal_History_Title" xml:space="preserve">
+    <value>Historial de versiones</value>
+  </data>
+  <data name="Acta_Modal_History_Hint" xml:space="preserve">
+    <value>Consulta y edición completas en la pestaña «Acta»</value>
+  </data>
+  <data name="Acta_Modal_History_Empty" xml:space="preserve">
+    <value>Todavía no se han generado actas para esta reunión.</value>
+  </data>
+  <data name="Acta_Modal_History_Empty_Hint" xml:space="preserve">
+    <value>Configura las opciones superiores y pulsa «Generar Acta con IA» para crear la primera versión.</value>
+  </data>
+  <data name="Acta_Modal_History_Error" xml:space="preserve">
+    <value>No se pudo cargar el historial de versiones.</value>
+  </data>
   <data name="Notice_Title" xml:space="preserve">
     <value>Antes de comenzar</value>
   </data>

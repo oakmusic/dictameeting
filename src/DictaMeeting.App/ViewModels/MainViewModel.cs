@@ -23,6 +23,8 @@ using DictaMeeting.Transcription.Models;
 using DictaMeeting.Transcription.Services;
 using Microsoft.Extensions.Logging;
 using DictaMeeting.App.Services;
+using DictaMeeting.App.Common;
+using DictaMeeting.App.Diagnostics;
 
 namespace DictaMeeting.App.ViewModels;
 
@@ -70,6 +72,7 @@ public partial class MainViewModel : ObservableObject
     private bool _isLoadingSettings;
     private bool _isUserSeekingAudio;
     private bool _suppressNextAutoScroll;
+    private readonly SemaphoreSlim _historyLoadSemaphore = new(1, 1);
 
     public VocabularyManagerViewModel VocabularyManager { get; }
     public int VocabularyCount => _vocabularyService?.GetTerms().Count ?? 0;
@@ -157,8 +160,8 @@ public partial class MainViewModel : ObservableObject
             _meetingService.CurrentMeeting.Title = MeetingTitle;
             if (CurrentState == MeetingState.Completed || _meetingService.CurrentMeeting.State == MeetingState.Completed)
             {
-                _ = _repository.SaveMeetingAsync(_meetingService.CurrentMeeting, CancellationToken.None);
-                _ = LoadSavedMeetingsAsync();
+                _repository.SaveMeetingAsync(_meetingService.CurrentMeeting, CancellationToken.None).SafeFireAndForget(_logger, "MeetingTitle_SaveMeeting");
+                LoadSavedMeetingsAsync().SafeFireAndForget(_logger, "MeetingTitle_LoadSavedMeetings");
             }
         }
         RefreshWorkspaceState();
@@ -403,7 +406,7 @@ public partial class MainViewModel : ObservableObject
                 }
                 if (CurrentState == MeetingState.Completed)
                 {
-                    _ = _repository.SaveMeetingAsync(_meetingService.CurrentMeeting, CancellationToken.None);
+                    _repository.SaveMeetingAsync(_meetingService.CurrentMeeting, CancellationToken.None).SafeFireAndForget(_logger, "AddRealParticipant_SaveMeeting");
                 }
             }
         }
@@ -423,7 +426,7 @@ public partial class MainViewModel : ObservableObject
                 _meetingService.CurrentMeeting.ExpectedParticipants.RemoveAll(p => string.Equals(p, name, StringComparison.OrdinalIgnoreCase));
                 if (CurrentState == MeetingState.Completed)
                 {
-                    _ = _repository.SaveMeetingAsync(_meetingService.CurrentMeeting, CancellationToken.None);
+                    _repository.SaveMeetingAsync(_meetingService.CurrentMeeting, CancellationToken.None).SafeFireAndForget(_logger, "RemoveRealParticipant_SaveMeeting");
                 }
             }
         }
@@ -547,7 +550,7 @@ public partial class MainViewModel : ObservableObject
     {
         if (IsMonitoringAudio)
         {
-            _ = ToggleAudioMonitoringAsync();
+            ToggleAudioMonitoringAsync().SafeFireAndForget(_logger, "CloseMeetingSettings_ToggleAudioMonitoring");
         }
         IsMeetingSettingsModalOpen = false;
         SaveCurrentUserSettings();
@@ -673,6 +676,9 @@ public partial class MainViewModel : ObservableObject
     private string _actaErrorMessage = string.Empty;
 
     [ObservableProperty]
+    private string _actaHistoryErrorMessage = string.Empty;
+
+    [ObservableProperty]
     private string _generatedActaMarkdown = string.Empty;
 
     [ObservableProperty]
@@ -683,6 +689,25 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _isActaModalOpen;
+
+    public ObservableCollection<ActaVersionItemViewModel> AvailableActaVersions { get; } = new();
+
+    [ObservableProperty]
+    private ActaVersionItemViewModel? _selectedActaVersion;
+
+    [ObservableProperty]
+    private bool _isActaEditMode;
+
+    [ObservableProperty]
+    private string _editableActaMarkdown = string.Empty;
+
+    [ObservableProperty]
+    private bool _hasUnsavedActaChanges;
+
+    [ObservableProperty]
+    private bool _canRestoreOriginalAiActa;
+
+    private bool _isInternalActaVersionSwitch;
 
     [ObservableProperty]
     private bool _isAiConfigModalOpen;
@@ -869,7 +894,7 @@ public partial class MainViewModel : ObservableObject
     {
         if (value == 1)
         {
-            _ = LoadSavedMeetingsAsync();
+            LoadSavedMeetingsAsync().SafeFireAndForget(_logger, "History_OnSelectedNavigationTabChanged");
         }
     }
 
@@ -907,8 +932,8 @@ public partial class MainViewModel : ObservableObject
         MeetingTitle = $"Reunión {DateTime.Now:yyyy-MM-dd HH:mm}";
         Organizer = string.Empty;
         Company = string.Empty;
-        GeneratedActaMarkdown = string.Empty;
-        HasGeneratedActa = false;
+        UpdateAvailableActaVersions(null);
+        IsActaEditMode = false;
         WorkspaceRightTab = 0;
         HistoricalDetailTab = 0;
 
@@ -931,8 +956,14 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void SelectHistoryTab()
     {
-        SelectedNavigationTab = 1;
-        _ = LoadSavedMeetingsAsync();
+        if (SelectedNavigationTab != 1)
+        {
+            SelectedNavigationTab = 1;
+        }
+        else
+        {
+            LoadSavedMeetingsAsync().SafeFireAndForget(_logger, "History_SelectHistoryTab");
+        }
     }
 
     // =========================================================================
@@ -1411,7 +1442,7 @@ public partial class MainViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(FirstRunHardwareSummary))
         {
-            _ = Task.Run(async () =>
+            Task.Run(async () =>
             {
                 try
                 {
@@ -1425,7 +1456,7 @@ public partial class MainViewModel : ObservableObject
                 {
                     // ignored
                 }
-            });
+            }).SafeFireAndForget(_logger, "OpenModelManager_DetectHardware");
         }
         RefreshModelCatalog();
         IsModelManagerModalOpen = true;
@@ -1451,7 +1482,7 @@ public partial class MainViewModel : ObservableObject
         get
         {
             var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
-            if (version == null) return "Versión 1.5.4 r2";
+            if (version == null) return "Versión 1.5.5";
             return version.Revision > 0
                 ? $"Versión {version.Major}.{version.Minor}.{version.Build} r{version.Revision}"
                 : $"Versión {version.Major}.{version.Minor}.{version.Build}";
@@ -1463,7 +1494,7 @@ public partial class MainViewModel : ObservableObject
         get
         {
             var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
-            if (version == null) return "v1.5.4r2";
+            if (version == null) return "v1.5.5";
             return version.Revision > 0
                 ? $"v{version.Major}.{version.Minor}.{version.Build}r{version.Revision}"
                 : $"v{version.Major}.{version.Minor}.{version.Build}";
@@ -1529,7 +1560,7 @@ public partial class MainViewModel : ObservableObject
             {
                 SelectedHistoricalMeeting.Meeting.ExpectedParticipants.Add(name);
             }
-            _ = _repository.SaveMeetingAsync(SelectedHistoricalMeeting.Meeting, CancellationToken.None);
+            _repository.SaveMeetingAsync(SelectedHistoricalMeeting.Meeting, CancellationToken.None).SafeFireAndForget(_logger, "AddHistoricalRealParticipant_SaveMeeting");
         }
         NewHistoricalRealParticipantName = string.Empty;
     }
@@ -1543,7 +1574,7 @@ public partial class MainViewModel : ObservableObject
         {
             HistoricalRealParticipants.Remove(existing);
             SelectedHistoricalMeeting.Meeting.ExpectedParticipants.RemoveAll(p => string.Equals(p, name, StringComparison.OrdinalIgnoreCase));
-            _ = _repository.SaveMeetingAsync(SelectedHistoricalMeeting.Meeting, CancellationToken.None);
+            _repository.SaveMeetingAsync(SelectedHistoricalMeeting.Meeting, CancellationToken.None).SafeFireAndForget(_logger, "RemoveHistoricalRealParticipant_SaveMeeting");
         }
     }
 
@@ -2156,7 +2187,7 @@ public partial class MainViewModel : ObservableObject
         InitializeModelsAndLanguages();
 
         // Carga inicial de dispositivos reales
-        _ = LoadAudioDevicesAsync();
+        LoadAudioDevicesAsync().SafeFireAndForget(_logger, "Constructor_LoadAudioDevices");
     }
 
     private void InitializeModelsAndLanguages()
@@ -3664,7 +3695,7 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void OpenMeetingFolder()
     {
-        var meeting = _meetingService.CurrentMeeting;
+        var meeting = _actaTargetMeeting ?? _meetingService.CurrentMeeting ?? SelectedHistoricalMeeting?.Meeting;
         if (meeting != null)
         {
             var dir = _repository.GetMeetingDirectoryPath(meeting);
@@ -3799,19 +3830,11 @@ public partial class MainViewModel : ObservableObject
         SelectedActaLanguage = LocalizationManager.Instance.CurrentLanguageCode.Equals("en", StringComparison.OrdinalIgnoreCase)
             ? LanguageMode.English
             : LanguageMode.Spanish;
-        _actaTargetMeeting = _meetingService.CurrentMeeting;
+        _actaTargetMeeting = _meetingService.CurrentMeeting ?? SelectedHistoricalMeeting?.Meeting;
         CheckConfiguredApiKey();
-        if (_actaTargetMeeting != null && !string.IsNullOrWhiteSpace(_actaTargetMeeting.ActaMarkdown))
-        {
-            GeneratedActaMarkdown = _actaTargetMeeting.ActaMarkdown;
-            HasGeneratedActa = true;
-        }
-        else
-        {
-            GeneratedActaMarkdown = string.Empty;
-            HasGeneratedActa = false;
-        }
+        UpdateAvailableActaVersions(_actaTargetMeeting);
         ActaErrorMessage = string.Empty;
+        ActaHistoryErrorMessage = string.Empty;
         IsActaModalOpen = true;
     }
 
@@ -3824,17 +3847,9 @@ public partial class MainViewModel : ObservableObject
             : LanguageMode.Spanish;
         _actaTargetMeeting = SelectedHistoricalMeeting.Meeting;
         CheckConfiguredApiKey();
-        if (_actaTargetMeeting != null && !string.IsNullOrWhiteSpace(_actaTargetMeeting.ActaMarkdown))
-        {
-            GeneratedActaMarkdown = _actaTargetMeeting.ActaMarkdown;
-            HasGeneratedActa = true;
-        }
-        else
-        {
-            GeneratedActaMarkdown = string.Empty;
-            HasGeneratedActa = false;
-        }
+        UpdateAvailableActaVersions(_actaTargetMeeting);
         ActaErrorMessage = string.Empty;
+        ActaHistoryErrorMessage = string.Empty;
         IsActaModalOpen = true;
     }
 
@@ -3842,6 +3857,207 @@ public partial class MainViewModel : ObservableObject
     private void CloseActaDialog()
     {
         IsActaModalOpen = false;
+    }
+
+    partial void OnSelectedActaVersionChanged(ActaVersionItemViewModel? oldValue, ActaVersionItemViewModel? newValue)
+    {
+        if (_isInternalActaVersionSwitch) return;
+
+        if (oldValue != null && newValue != null && oldValue.Id != newValue.Id && HasUnsavedActaChanges)
+        {
+            var msg = Loc("Acta_Unsaved_Prompt_Message");
+            var title = Loc("Acta_Unsaved_Prompt_Title");
+            var res = MessageBox.Show(msg, title, MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+            if (res == MessageBoxResult.Yes)
+            {
+                oldValue.Version.MarkdownContent = EditableActaMarkdown;
+                oldValue.Version.LastModifiedAt = DateTimeOffset.Now;
+                oldValue.NotifyChanged();
+
+                var targetMeeting = _actaTargetMeeting ?? _meetingService.CurrentMeeting;
+                if (targetMeeting != null)
+                {
+                    _repository.SaveMeetingAsync(targetMeeting).SafeFireAndForget(_logger, "ActaUnsavedPrompt_SaveMeeting");
+                }
+            }
+            else if (res == MessageBoxResult.Cancel)
+            {
+                Application.Current?.Dispatcher?.BeginInvoke(new Action(() =>
+                {
+                    _isInternalActaVersionSwitch = true;
+                    SelectedActaVersion = oldValue;
+                    _isInternalActaVersionSwitch = false;
+                }));
+                return;
+            }
+
+            HasUnsavedActaChanges = false;
+        }
+
+        if (newValue != null)
+        {
+            GeneratedActaMarkdown = newValue.MarkdownContent;
+            EditableActaMarkdown = newValue.MarkdownContent;
+            HasUnsavedActaChanges = false;
+            CanRestoreOriginalAiActa = !string.IsNullOrWhiteSpace(newValue.OriginalAiMarkdownContent) &&
+                                       newValue.OriginalAiMarkdownContent != newValue.MarkdownContent;
+
+            var meeting = _actaTargetMeeting ?? _meetingService.CurrentMeeting;
+            if (meeting != null)
+            {
+                meeting.SelectedActaVersionId = newValue.Id;
+                meeting.ActaMarkdown = newValue.MarkdownContent;
+            }
+        }
+    }
+
+    partial void OnEditableActaMarkdownChanged(string value)
+    {
+        if (_isInternalActaVersionSwitch) return;
+
+        if (SelectedActaVersion != null)
+        {
+            var original = SelectedActaVersion.MarkdownContent ?? string.Empty;
+            HasUnsavedActaChanges = !string.Equals(value, original, StringComparison.Ordinal);
+        }
+    }
+
+    public void UpdateAvailableActaVersions(Meeting? meeting, string? selectVersionId = null)
+    {
+        AvailableActaVersions.Clear();
+        ActaHistoryErrorMessage = string.Empty;
+        if (meeting == null)
+        {
+            _isInternalActaVersionSwitch = true;
+            SelectedActaVersion = null;
+            GeneratedActaMarkdown = string.Empty;
+            EditableActaMarkdown = string.Empty;
+            HasUnsavedActaChanges = false;
+            HasGeneratedActa = false;
+            _isInternalActaVersionSwitch = false;
+            return;
+        }
+
+        try
+        {
+            if (meeting.ActaVersions == null || meeting.ActaVersions.Count == 0)
+            {
+                if (!string.IsNullOrWhiteSpace(meeting.ActaMarkdown))
+                {
+                    var legacy = new MeetingActaVersion
+                    {
+                        Id = Guid.NewGuid().ToString("N"),
+                        MeetingId = meeting.Id,
+                        FileName = $"acta_legacy_{meeting.Id[..Math.Min(6, meeting.Id.Length)]}.md",
+                        Language = LanguageMode.Auto,
+                        DetailLevel = ActaDetailLevel.Normal,
+                        CreatedAt = meeting.StartTime?.LocalDateTime ?? meeting.Date,
+                        IsLegacyMigrated = true,
+                        MarkdownContent = meeting.ActaMarkdown,
+                        OriginalAiMarkdownContent = meeting.ActaMarkdown
+                    };
+                    meeting.ActaVersions ??= new();
+                    meeting.ActaVersions.Add(legacy);
+                    meeting.SelectedActaVersionId = legacy.Id;
+                }
+            }
+
+            if (meeting?.ActaVersions != null)
+            {
+                var sorted = meeting.ActaVersions.OrderByDescending(v => v.CreatedAt).ToList();
+                foreach (var v in sorted)
+                {
+                    AvailableActaVersions.Add(new ActaVersionItemViewModel(v));
+                }
+            }
+
+            var targetId = selectVersionId ?? meeting?.SelectedActaVersionId;
+            var toSelect = AvailableActaVersions.FirstOrDefault(vm => vm.Id == targetId)
+                           ?? AvailableActaVersions.FirstOrDefault();
+
+            _isInternalActaVersionSwitch = true;
+            try
+            {
+                SelectedActaVersion = toSelect;
+                GeneratedActaMarkdown = toSelect?.MarkdownContent ?? meeting?.ActaMarkdown ?? string.Empty;
+                EditableActaMarkdown = GeneratedActaMarkdown;
+                HasUnsavedActaChanges = false;
+                HasGeneratedActa = !string.IsNullOrWhiteSpace(GeneratedActaMarkdown);
+                CanRestoreOriginalAiActa = toSelect != null &&
+                                           !string.IsNullOrWhiteSpace(toSelect.OriginalAiMarkdownContent) &&
+                                           toSelect.OriginalAiMarkdownContent != toSelect.MarkdownContent;
+            }
+            finally
+            {
+                _isInternalActaVersionSwitch = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Error al actualizar las versiones de acta para la reunión {MeetingId}", meeting.Id);
+            ActaHistoryErrorMessage = Loc("Acta_Modal_History_Error");
+        }
+    }
+
+    [RelayCommand]
+    public async Task ToggleActaEditModeAsync()
+    {
+        if (IsActaEditMode)
+        {
+            if (HasUnsavedActaChanges)
+            {
+                await SaveActaChangesAsync();
+            }
+            IsActaEditMode = false;
+        }
+        else
+        {
+            EditableActaMarkdown = GeneratedActaMarkdown;
+            IsActaEditMode = true;
+        }
+    }
+
+    [RelayCommand]
+    public async Task SaveActaChangesAsync()
+    {
+        if (SelectedActaVersion == null) return;
+
+        SelectedActaVersion.Version.MarkdownContent = EditableActaMarkdown;
+        SelectedActaVersion.Version.LastModifiedAt = DateTimeOffset.Now;
+        SelectedActaVersion.NotifyChanged();
+
+        GeneratedActaMarkdown = EditableActaMarkdown;
+        HasUnsavedActaChanges = false;
+        CanRestoreOriginalAiActa = !string.IsNullOrWhiteSpace(SelectedActaVersion.OriginalAiMarkdownContent) &&
+                                   SelectedActaVersion.OriginalAiMarkdownContent != SelectedActaVersion.MarkdownContent;
+
+        var meeting = _actaTargetMeeting ?? _meetingService.CurrentMeeting;
+        if (meeting != null)
+        {
+            meeting.SelectedActaVersionId = SelectedActaVersion.Id;
+            meeting.ActaMarkdown = EditableActaMarkdown;
+            await _repository.SaveMeetingAsync(meeting);
+        }
+
+        StatusMessage = "Cambios guardados en el acta.";
+    }
+
+    [RelayCommand]
+    public void DiscardActaChanges()
+    {
+        if (SelectedActaVersion == null) return;
+        EditableActaMarkdown = SelectedActaVersion.MarkdownContent ?? string.Empty;
+        HasUnsavedActaChanges = false;
+    }
+
+    [RelayCommand]
+    public async Task RestoreOriginalAiActaAsync()
+    {
+        if (SelectedActaVersion == null || string.IsNullOrWhiteSpace(SelectedActaVersion.OriginalAiMarkdownContent)) return;
+
+        EditableActaMarkdown = SelectedActaVersion.OriginalAiMarkdownContent;
+        await SaveActaChangesAsync();
+        StatusMessage = "Se ha restaurado el contenido original del acta.";
     }
 
     [RelayCommand]
@@ -4131,13 +4347,31 @@ public partial class MainViewModel : ObservableObject
 
             if (result.Success && !string.IsNullOrWhiteSpace(result.MarkdownContent))
             {
-                GeneratedActaMarkdown = result.MarkdownContent;
-                HasGeneratedActa = true;
-                meeting.ActaMarkdown = result.MarkdownContent;
-                WorkspaceRightTab = 1; // switch workspace right pane to Acta view
+                var newVersion = new MeetingActaVersion
+                {
+                    Id = Guid.NewGuid().ToString("N"),
+                    MeetingId = meeting.Id,
+                    Language = options.Language,
+                    DetailLevel = options.DetailLevel,
+                    CreatedAt = DateTimeOffset.Now,
+                    ModelUsed = isCustomServer ? (CustomAiModel ?? "Custom Server") : modelName,
+                    MarkdownContent = result.MarkdownContent,
+                    OriginalAiMarkdownContent = result.MarkdownContent,
+                    FileName = $"acta_{DateTime.Now:yyyyMMdd_HHmmss}_{options.Language.ToString().ToLowerInvariant()}_{options.DetailLevel.ToString().ToLowerInvariant()}_{Guid.NewGuid().ToString("N")[..6]}.md"
+                };
 
-                // Guardar reunión actualizada (incluyendo acta.md)
+                meeting.ActaVersions.Add(newVersion);
+                meeting.SelectedActaVersionId = newVersion.Id;
+                meeting.ActaMarkdown = result.MarkdownContent;
+
+                // Guardar reunión actualizada (incluyendo historial en subcarpeta actas/)
                 await _repository.SaveMeetingAsync(meeting);
+
+                UpdateAvailableActaVersions(meeting, newVersion.Id);
+                IsActaEditMode = false;
+                HasUnsavedActaChanges = false;
+                HasGeneratedActa = true;
+                WorkspaceRightTab = 1; // switch workspace right pane to Acta view
 
                 if (SelectedHistoricalMeeting != null && SelectedHistoricalMeeting.Meeting.Id == meeting.Id)
                 {
@@ -4145,7 +4379,7 @@ public partial class MainViewModel : ObservableObject
                     HistoricalDetailTab = 2; // switch to Acta tab
                 }
 
-                _ = LoadSavedMeetingsAsync();
+                LoadSavedMeetingsAsync().SafeFireAndForget(_logger, "ActaGenerated_LoadHistory");
 
                 ActaTokensUsedText = result.TotalTokensUsed.HasValue && result.TotalTokensUsed > 0
                     ? $"Tokens: {result.PromptTokensUsed:N0} prompt / {result.CompletionTokensUsed:N0} respuesta (Total: {result.TotalTokensUsed:N0})"
@@ -4173,11 +4407,12 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void CopyActaToClipboard()
     {
-        if (string.IsNullOrWhiteSpace(GeneratedActaMarkdown)) return;
+        var textToCopy = IsActaEditMode ? EditableActaMarkdown : (SelectedActaVersion?.MarkdownContent ?? GeneratedActaMarkdown);
+        if (string.IsNullOrWhiteSpace(textToCopy)) return;
 
         try
         {
-            Clipboard.SetText(GeneratedActaMarkdown);
+            Clipboard.SetText(textToCopy);
             StatusMessage = "Acta copiada al portapapeles.";
         }
         catch (Exception ex)
@@ -4189,20 +4424,24 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private void ExportActaMarkdown()
     {
-        if (string.IsNullOrWhiteSpace(GeneratedActaMarkdown)) return;
+        var textToExport = IsActaEditMode ? EditableActaMarkdown : (SelectedActaVersion?.MarkdownContent ?? GeneratedActaMarkdown);
+        if (string.IsNullOrWhiteSpace(textToExport)) return;
 
-        var meeting = _meetingService.CurrentMeeting;
+        var meeting = _meetingService.CurrentMeeting ?? SelectedHistoricalMeeting?.Meeting;
         var baseName = meeting != null ? _repository.GetMeetingFileBaseName(meeting) : $"Acta_{DateTime.Now:yyyy-MM-dd_HH-mm}";
+        var verSuffix = SelectedActaVersion != null
+            ? $"_{SelectedActaVersion.Language}_{SelectedActaVersion.DetailLevel}"
+            : "";
         var dialog = new Microsoft.Win32.SaveFileDialog
         {
-            FileName = $"{baseName}_acta.md",
+            FileName = $"{baseName}_acta{verSuffix}.md",
             Filter = "Documento Markdown (*.md)|*.md|Todos los archivos (*.*)|*.*",
             Title = "Guardar Acta de la Reunión"
         };
 
         if (dialog.ShowDialog() == true)
         {
-            System.IO.File.WriteAllText(dialog.FileName, GeneratedActaMarkdown);
+            System.IO.File.WriteAllText(dialog.FileName, textToExport);
             StatusMessage = $"Acta guardada en: {dialog.FileName}";
         }
     }
@@ -4242,7 +4481,7 @@ public partial class MainViewModel : ObservableObject
                     _meetingService.UpdateSpeakerDisplayName(id, finalName);
                     if (_meetingService.CurrentMeeting != null && CurrentState == MeetingState.Completed)
                     {
-                        _ = _repository.SaveMeetingAsync(_meetingService.CurrentMeeting, CancellationToken.None);
+                        _repository.SaveMeetingAsync(_meetingService.CurrentMeeting, CancellationToken.None).SafeFireAndForget(_logger, "SpeakerNameCommitted_SaveMeeting");
                     }
                 },
                 availableRealParticipants: RealParticipants);
@@ -4547,7 +4786,7 @@ public partial class MainViewModel : ObservableObject
 
         if (_meetingService.CurrentMeeting != null && CurrentState == MeetingState.Completed)
         {
-            _ = _repository.SaveMeetingAsync(_meetingService.CurrentMeeting, CancellationToken.None);
+            _repository.SaveMeetingAsync(_meetingService.CurrentMeeting, CancellationToken.None).SafeFireAndForget(_logger, "SpeakerRenamed_SaveMeeting");
         }
     }
 
@@ -4805,7 +5044,7 @@ public partial class MainViewModel : ObservableObject
         _moveModelsCts = new CancellationTokenSource();
         var ct = _moveModelsCts.Token;
 
-        _ = Task.Run(async () =>
+        Task.Run(async () =>
         {
             try
             {
@@ -4896,7 +5135,7 @@ public partial class MainViewModel : ObservableObject
                     OnError();
                 }
             }
-        });
+        }).SafeFireAndForget(_logger, "MoveModels_MigrateModels");
     }
 
     [RelayCommand]
@@ -4934,6 +5173,8 @@ public partial class MainViewModel : ObservableObject
 
     public async Task LoadSavedMeetingsAsync()
     {
+        await _historyLoadSemaphore.WaitAsync();
+        using var op = CrashDiagnosticTracker.BeginOperation("History_LoadSavedMeetings");
         try
         {
             IsLoadingHistory = true;
@@ -4970,16 +5211,18 @@ public partial class MainViewModel : ObservableObject
         catch (Exception ex)
         {
             _logger?.LogError(ex, "Error al cargar historial de reuniones.");
+            CrashDiagnosticTracker.AddBreadcrumb($"[Error en LoadSavedMeetingsAsync] {ex.Message}");
         }
         finally
         {
             IsLoadingHistory = false;
+            _historyLoadSemaphore.Release();
         }
     }
 
     partial void OnHistorySearchQueryChanged(string value)
     {
-        _ = LoadSavedMeetingsAsync();
+        LoadSavedMeetingsAsync().SafeFireAndForget(_logger, "History_OnSearchQueryChanged");
     }
 
     partial void OnSelectedHistoricalMeetingChanged(MeetingHistoryItemViewModel? value)
@@ -5102,7 +5345,7 @@ public partial class MainViewModel : ObservableObject
                         }
                     }
 
-                    _ = _repository.SaveMeetingAsync(meeting, CancellationToken.None);
+                    _repository.SaveMeetingAsync(meeting, CancellationToken.None).SafeFireAndForget(_logger, "WorkspaceSpeakerCommitted_SaveMeeting");
                     var histItem = SavedMeetings.FirstOrDefault(m => m.Id == meeting.Id);
                     histItem?.RefreshStatus();
                 },
@@ -5134,14 +5377,28 @@ public partial class MainViewModel : ObservableObject
         TranscriptSegmentViewModel.UpdateSpeakerInterventionHeaders(TranscriptSegments);
 
         // Configurar reproductor y sincronización si la reunión tiene audio grabado
-        _audioPlayerService.Stop();
-        _audioPlayerService.Close();
-        _transcriptAudioSyncService.Clear();
-
-        if (meeting.State == MeetingState.Completed && meeting.AudioFileExists() && !IsPostProcessing)
+        try
         {
-            _audioPlayerService.Load(meeting.AudioFilePath, meeting.Duration);
-            _transcriptAudioSyncService.SetSegments(TranscriptSegments);
+            if (meeting.State == MeetingState.Completed && meeting.AudioFileExists() && !IsPostProcessing)
+            {
+                if (!string.Equals(_audioPlayerService.CurrentAudioFilePath, meeting.AudioFilePath, StringComparison.OrdinalIgnoreCase))
+                {
+                    _audioPlayerService.Stop();
+                    _audioPlayerService.Close();
+                    _audioPlayerService.Load(meeting.AudioFilePath, meeting.Duration);
+                }
+                _transcriptAudioSyncService.SetSegments(TranscriptSegments);
+            }
+            else
+            {
+                _audioPlayerService.Stop();
+                _audioPlayerService.Close();
+                _transcriptAudioSyncService.Clear();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "Fallo no crítico al configurar el reproductor de audio.");
         }
 
         // 7. Resumen
@@ -5172,9 +5429,9 @@ public partial class MainViewModel : ObservableObject
             });
         }
 
-        // 8. Acta
-        GeneratedActaMarkdown = meeting.ActaMarkdown ?? string.Empty;
-        HasGeneratedActa = !string.IsNullOrWhiteSpace(meeting.ActaMarkdown);
+        // 8. Acta (Historial de versiones y estado)
+        UpdateAvailableActaVersions(meeting);
+        IsActaEditMode = false;
         if (HasGeneratedActa && LiveSummaryCards.Count == 0)
         {
             WorkspaceRightTab = 1;
@@ -5202,14 +5459,25 @@ public partial class MainViewModel : ObservableObject
             await StopMeetingAsync();
         }
 
-        var freshMeeting = await _repository.GetMeetingAsync(targetItem.Id) ?? targetItem.Meeting;
-        freshMeeting.SyncParticipantsFromTranscript();
+        using var op = CrashDiagnosticTracker.BeginOperation("History_OpenMeeting", targetItem.Id);
 
-        LoadMeetingIntoWorkspace(freshMeeting);
+        try
+        {
+            var freshMeeting = await _repository.GetMeetingAsync(targetItem.Id) ?? targetItem.Meeting;
+            freshMeeting.SyncParticipantsFromTranscript();
 
-        // Cambiar a la pestaña principal "Reunión"
-        SelectedNavigationTab = 0;
-        StatusMessage = $"Reunión '{freshMeeting.Title}' abierta en el espacio de trabajo.";
+            LoadMeetingIntoWorkspace(freshMeeting);
+
+            // Cambiar a la pestaña principal "Reunión"
+            SelectedNavigationTab = 0;
+            StatusMessage = $"Reunión '{freshMeeting.Title}' abierta en el espacio de trabajo.";
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Error al abrir la reunión {MeetingId} en el espacio de trabajo.", targetItem.Id);
+            CrashDiagnosticTracker.RecordCrashReport(ex, $"MainViewModel.OpenMeetingAsync ({targetItem.Id})", isTerminating: false);
+            StatusMessage = $"No se pudo abrir la reunión: {ex.Message}";
+        }
     }
 
     public void RefreshWorkspaceState()
@@ -5279,7 +5547,7 @@ public partial class MainViewModel : ObservableObject
             }
         }
 
-        _ = _repository.SaveMeetingAsync(meeting, CancellationToken.None);
+        _repository.SaveMeetingAsync(meeting, CancellationToken.None).SafeFireAndForget(_logger, "UpdateHistoricalSpeaker_SaveMeeting");
         SelectedHistoricalMeeting.RefreshStatus();
     }
 

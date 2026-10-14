@@ -4,8 +4,8 @@
 ; =====================================================================
 
 #define MyAppName "DictaMeeting"
-#define MyAppVersion "1.5.4r2"
-#define MyAppNumericVersion "1.5.4.2"
+#define MyAppVersion "1.5.5"
+#define MyAppNumericVersion "1.5.5.0"
 #define MyAppPublisher "Aritz Villodas"
 #define MyAppURL "https://github.com/oakmusic/dictameeting"
 #define MyAppExeName "DictaMeeting.exe"

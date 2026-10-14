@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.IO;
 using DictaMeeting.Diarization.Models;
 using Microsoft.Extensions.Logging;
@@ -367,17 +368,25 @@ public sealed class Community1DiarizationPipeline : IDisposable
 
         // 1. Extraer FBank para cada chunk de 10s
         float[][,] chunkFbanks = new float[numChunks][,];
-        Span<float> chunkWaveform = stackalloc float[ChunkSamples];
-
-        for (int c = 0; c < numChunks; c++)
+        float[] chunkBuffer = ArrayPool<float>.Shared.Rent(ChunkSamples);
+        try
         {
-            int start = chunkStarts[c];
-            int copyLen = Math.Min(ChunkSamples, waveform.Length - start);
+            Span<float> chunkWaveform = chunkBuffer.AsSpan(0, ChunkSamples);
 
-            chunkWaveform.Clear();
-            for (int s = 0; s < copyLen; s++) chunkWaveform[s] = waveform[start + s];
+            for (int c = 0; c < numChunks; c++)
+            {
+                int start = chunkStarts[c];
+                int copyLen = Math.Min(ChunkSamples, waveform.Length - start);
 
-            chunkFbanks[c] = _fbankExtractor.ComputeFbank(chunkWaveform);
+                chunkWaveform.Clear();
+                for (int s = 0; s < copyLen; s++) chunkWaveform[s] = waveform[start + s];
+
+                chunkFbanks[c] = _fbankExtractor.ComputeFbank(chunkWaveform);
+            }
+        }
+        finally
+        {
+            ArrayPool<float>.Shared.Return(chunkBuffer);
         }
 
         // 2. Construir máscaras de enmascaramiento local de interlocutores

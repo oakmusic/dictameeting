@@ -494,5 +494,44 @@ public class ThemeAndUiViewModelTests
         Assert.True(seg3.HasSpeakerLabel); // Pablo vuelve a intervenir tras hablar Mónica
         Assert.False(seg4.HasSpeakerLabel); // Misma intervención que seg3, se oculta
     }
+
+    [Fact]
+    public void SegmentedControlTabs_HaveEqualWidth_BasedOnLongestContent()
+    {
+        var thread = new System.Threading.Thread(() =>
+        {
+            void AssertEqualTabs(string text0, string text1)
+            {
+                var ugrid = new System.Windows.Controls.Primitives.UniformGrid
+                {
+                    Rows = 1,
+                    Columns = 2,
+                    HorizontalAlignment = HorizontalAlignment.Left
+                };
+
+                var btn0 = new System.Windows.Controls.Button { Content = text0, Padding = new Thickness(12, 5, 12, 5), Margin = new Thickness(0, 0, 2, 0) };
+                var btn1 = new System.Windows.Controls.Button { Content = text1, Padding = new Thickness(12, 5, 12, 5), Margin = new Thickness(2, 0, 0, 0) };
+
+                ugrid.Children.Add(btn0);
+                ugrid.Children.Add(btn1);
+
+                ugrid.Measure(new System.Windows.Size(double.PositiveInfinity, double.PositiveInfinity));
+                ugrid.Arrange(new System.Windows.Rect(0, 0, ugrid.DesiredSize.Width, ugrid.DesiredSize.Height));
+
+                Assert.True(btn0.ActualWidth > 0);
+                Assert.True(btn1.ActualWidth > 0);
+                Assert.Equal(btn0.ActualWidth, btn1.ActualWidth);
+            }
+
+            // Caso 1: Primera pestaña más larga (Español: "Resumen" vs "Acta")
+            AssertEqualTabs("Resumen", "Acta");
+
+            // Caso 2: Segunda pestaña más larga (Inglés/Español: "Acta" vs "Minutes")
+            AssertEqualTabs("Acta", "Minutes");
+        });
+        thread.SetApartmentState(System.Threading.ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+    }
 }
 
