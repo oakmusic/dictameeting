@@ -29,6 +29,13 @@ public class SileroRealAudioTests
             return;
         }
 
+        var sequenceModel = SileroVoiceActivityDetector.ResolveModelPath(null, "silero_vad_16k_sequence.onnx");
+        if (!File.Exists(sequenceModel))
+        {
+            _output.WriteLine("Modelo Silero VAD sequence no encontrado. Prueba omitida.");
+            return;
+        }
+
         using var vad = new SileroVoiceActivityDetector();
         var regions = await vad.DetectSpeechRegionsAsync(wavPath);
 

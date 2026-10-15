@@ -176,6 +176,12 @@ public class LiveTranscriptionPipelineTests
             return;
         }
 
+        var streamingModel = SileroVoiceActivityDetector.ResolveModelPath(null, "silero_vad.onnx");
+        if (!File.Exists(streamingModel))
+        {
+            return;
+        }
+
         using var mockTranscriber = new MockTranscriptionService();
         using var realVad = new SileroVoiceActivityDetector();
         var config = new LiveTranscriptionConfig

@@ -1482,7 +1482,7 @@ public partial class MainViewModel : ObservableObject
         get
         {
             var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
-            if (version == null) return "Versión 1.5.5";
+            if (version == null) return "Versión 1.5.6";
             return version.Revision > 0
                 ? $"Versión {version.Major}.{version.Minor}.{version.Build} r{version.Revision}"
                 : $"Versión {version.Major}.{version.Minor}.{version.Build}";
@@ -1494,7 +1494,7 @@ public partial class MainViewModel : ObservableObject
         get
         {
             var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
-            if (version == null) return "v1.5.5";
+            if (version == null) return "v1.5.6";
             return version.Revision > 0
                 ? $"v{version.Major}.{version.Minor}.{version.Build}r{version.Revision}"
                 : $"v{version.Major}.{version.Minor}.{version.Build}";
@@ -4332,7 +4332,11 @@ public partial class MainViewModel : ObservableObject
             IncludePendingQuestions = IncludePendingQuestions,
             IsImpersonal = IsImpersonalActa,
             Endpoint = isCustomServer ? CustomAiEndpoint : null,
-            CustomModelName = isCustomServer ? CustomAiModel : null
+            CustomModelName = isCustomServer ? CustomAiModel : null,
+            Progress = new Progress<string>(status =>
+            {
+                ActaGenerationStatus = status;
+            })
         };
 
         try
@@ -4345,7 +4349,7 @@ public partial class MainViewModel : ObservableObject
 
             var result = await _aiActaService.GenerateActaAsync(meeting, options);
 
-            if (result.Success && !string.IsNullOrWhiteSpace(result.MarkdownContent))
+            if (result.Success && !string.IsNullOrWhiteSpace(result.MarkdownContent) && !result.IsTruncated)
             {
                 var newVersion = new MeetingActaVersion
                 {
@@ -4381,17 +4385,36 @@ public partial class MainViewModel : ObservableObject
 
                 LoadSavedMeetingsAsync().SafeFireAndForget(_logger, "ActaGenerated_LoadHistory");
 
-                ActaTokensUsedText = result.TotalTokensUsed.HasValue && result.TotalTokensUsed > 0
-                    ? $"Tokens: {result.PromptTokensUsed:N0} prompt / {result.CompletionTokensUsed:N0} respuesta (Total: {result.TotalTokensUsed:N0})"
-                    : string.Empty;
+                if (result.TotalTokensUsed.HasValue && result.TotalTokensUsed > 0)
+                {
+                    var reasoningPart = result.ReasoningTokensUsed.HasValue && result.ReasoningTokensUsed.Value > 0
+                        ? $" (incl. {result.ReasoningTokensUsed.Value:N0} razonamiento)"
+                        : string.Empty;
+
+                    var stagesPart = result.StagesExecuted > 1
+                        ? $" en {result.StagesExecuted} etapas"
+                        : string.Empty;
+
+                    ActaTokensUsedText = $"Tokens: {result.PromptTokensUsed:N0} prompt / {result.CompletionTokensUsed:N0} respuesta{reasoningPart} (Total: {result.TotalTokensUsed:N0}{stagesPart})";
+                }
+                else
+                {
+                    ActaTokensUsedText = string.Empty;
+                }
 
                 StatusMessage = isCustomServer
                     ? $"Acta ejecutiva generada con éxito utilizando Servidor personalizado ({CustomAiModel})."
-                    : $"Acta ejecutiva generada con éxito utilizando {modelName}.";
+                    : (result.StagesExecuted > 1
+                        ? $"Acta ejecutiva generada con éxito en {result.StagesExecuted} etapas utilizando {modelName}."
+                        : $"Acta ejecutiva generada con éxito utilizando {modelName}.");
             }
             else
             {
                 ActaErrorMessage = result.ErrorMessage ?? "Error desconocido al generar el acta.";
+                if (result.IsTruncated)
+                {
+                    ActaErrorMessage = $"[Incompleta] {result.ErrorMessage}";
+                }
             }
         }
         catch (Exception ex)

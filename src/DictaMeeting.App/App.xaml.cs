@@ -40,7 +40,7 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
-        var version = typeof(App).Assembly.GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "1.5.5";
+        var version = typeof(App).Assembly.GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "1.5.6";
         LogBoot($"[App] Iniciando DictaMeeting v{version} (.NET {Environment.Version}, OS: {Environment.OSVersion}, 64-bit: {Environment.Is64BitProcess})");
 
         // Prevenir cierre prematuro de la aplicación durante la transición SplashWindow -> MainWindow

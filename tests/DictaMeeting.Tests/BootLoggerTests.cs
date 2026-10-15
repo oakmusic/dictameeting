@@ -228,7 +228,7 @@ public class BootLoggerTests
     [Fact]
     public void Sanitize_PreservesNormalLogMessages()
     {
-        var normalMessage = "[App] Iniciando DictaMeeting v1.5.5 (.NET 9.0.0, OS: Windows 11, 64-bit: True)";
+        var normalMessage = "[App] Iniciando DictaMeeting v1.5.6 (.NET 9.0.0, OS: Windows 11, 64-bit: True)";
 
         var sanitized = BootLogger.Sanitize(normalMessage);
 

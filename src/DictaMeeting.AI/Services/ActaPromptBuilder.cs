@@ -30,6 +30,7 @@ public static class ActaPromptBuilder
         sb.AppendLine();
 
         sb.AppendLine($"Nivel de detalle requerido: {options.DetailLevel}.");
+        sb.AppendLine(GetDetailLevelGuidance(options.DetailLevel, options.Language));
         sb.AppendLine();
 
         if (options.IsImpersonal)
@@ -214,6 +215,283 @@ public static class ActaPromptBuilder
         }
 
         return systemPrompt;
+    }
+
+    public static string GetDetailLevelGuidance(ActaDetailLevel level, LanguageMode language)
+    {
+        if (language == LanguageMode.English)
+        {
+            return level switch
+            {
+                ActaDetailLevel.Breve => "Brief level: Synthesize the essential core directly without extending into debate details or minor back-and-forth.",
+                ActaDetailLevel.Normal => "Normal level: Balanced executive minutes, developing each topic clearly and highlighting key agreements and tasks.",
+                ActaDetailLevel.Detallada => "Detailed level: Thoroughly develop each topic discussed, documenting positions, arguments, context of each decision, and precise commitments and owners.",
+                ActaDetailLevel.Exhaustiva => "Comprehensive level: Extensively and meticulously document all topics, discussions, participant arguments, evaluated alternatives, detailed context of each decision, complete action items table, and all open questions.",
+                _ => string.Empty
+            };
+        }
+
+        return level switch
+        {
+            ActaDetailLevel.Breve => "Nivel breve: Sintetiza lo esencial de forma concisa y directa, sin extenderse en los pormenores del debate.",
+            ActaDetailLevel.Normal => "Nivel normal: Acta ejecutiva equilibrada, desarrollando cada tema con claridad y destacando los acuerdos y tareas clave.",
+            ActaDetailLevel.Detallada => "Nivel detallado: Desarrolla ampliamente cada tema tratado, documentando las posturas y argumentos debatidos, el contexto de cada decisión, y especificando con precisión los compromisos y responsables.",
+            ActaDetailLevel.Exhaustiva => "Nivel exhaustivo: Documenta de forma amplia y minuciosa todos los temas, debates, argumentos de los participantes, alternativas evaluadas, contexto detallado de cada acuerdo, tabla de acciones completa y todas las cuestiones abiertas o pendientes.",
+            _ => string.Empty
+        };
+    }
+
+    /// <summary>
+    /// Construye el prompt de sistema para el análisis de un fragmento individual en la estrategia jerárquica.
+    /// </summary>
+    public static string BuildChunkAnalysisSystemPrompt(ActaGenerationOptions options)
+    {
+        var langStr = options.Language == LanguageMode.English ? "English" : "Español";
+        var sb = new StringBuilder();
+        sb.AppendLine("Eres un analista ejecutivo de máxima precisión y fidelidad factual.");
+        sb.AppendLine($"Idioma de trabajo: {langStr}.");
+        sb.AppendLine("Tu misión es extraer y estructurar rigurosamente los hechos acontecidos en este fragmento temporal de la reunión.");
+        sb.AppendLine("REGLAS ESTRICTAS:");
+        sb.AppendLine("1. Basa la extracción EXCLUSIVAMENTE en el texto del fragmento.");
+        sb.AppendLine("2. NO inventes información, datos, nombres ni conclusiones.");
+        sb.AppendLine("3. Diferencia estrictamente una propuesta debatida de una decisión o acuerdo firme.");
+        sb.AppendLine("4. Conserva marcas temporales relevantes y nombres de participantes reales.");
+
+        if (options.IsImpersonal)
+        {
+            sb.AppendLine("5. Modalidad impersonal ACTIVADA: No atribuyas declaraciones a participantes con identificadores técnicos (SPEAKER_XX). Redacta en forma impersonal.");
+        }
+
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Construye el prompt de usuario para extraer hechos y acuerdos de un fragmento temporal específico.
+    /// </summary>
+    public static string BuildChunkAnalysisPrompt(
+        TranscriptChunk chunk,
+        Meeting meeting,
+        ActaGenerationOptions options,
+        IVocabularyService? vocabularyService = null)
+    {
+        var sb = new StringBuilder();
+        var langStr = options.Language == LanguageMode.English ? "English" : "Español";
+
+        sb.AppendLine($"Analiza el siguiente fragmento de la reunión '{meeting.Title}' ({chunk.TimeRange}, Fragmento #{chunk.Index + 1}).");
+        sb.AppendLine($"Idioma de respuesta requerido: {langStr}.");
+        sb.AppendLine();
+        sb.AppendLine("Extrae de forma concisa y estructurada la siguiente información del fragmento:");
+        sb.AppendLine("1. TEMAS Y DISCUSIONES: Puntos clave abordados en este tramo, argumentos principales y contexto temporal.");
+        sb.AppendLine("2. PROPUESTAS Y DEBATE: Opciones planteadas, dudas o alternativas expuestas.");
+        sb.AppendLine("3. ACUERDOS Y DECISIONES: Decisiones firmes adoptadas durante este tramo (si las hubo).");
+        sb.AppendLine("4. ACCIONES Y RESPONSABLES: Tareas acordadas, quién es responsable (o 'Equipo' si es impersonal) y fechas límite si se mencionaron.");
+        sb.AppendLine("5. CUESTIONES PENDIENTES: Puntos no resueltos o dejados para más adelante.");
+        sb.AppendLine();
+
+        var vocabTerms = vocabularyService?.GetOfficialWords() ?? options.VocabularyTerms;
+        if (vocabTerms != null && vocabTerms.Count > 0)
+        {
+            sb.AppendLine($"Glosario oficial a respetar: {string.Join(", ", vocabTerms)}");
+            sb.AppendLine();
+        }
+
+        sb.AppendLine($"=== TRANSCRIPCIÓN DEL FRAGMENTO ({chunk.TimeRange}) ===");
+        foreach (var segment in chunk.Segments)
+        {
+            var speaker = string.IsNullOrWhiteSpace(segment.SpeakerDisplayName)
+                ? (string.IsNullOrWhiteSpace(segment.SpeakerId) ? "Hablante" : segment.SpeakerId)
+                : segment.SpeakerDisplayName;
+
+            sb.AppendLine($"[{segment.FormattedStartTime}] {speaker}: {segment.Text}");
+        }
+        sb.AppendLine("=== FIN DEL FRAGMENTO ===");
+
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Construye el prompt de sistema para la síntesis global de todos los fragmentos analizados.
+    /// </summary>
+    public static string BuildGlobalSynthesisSystemPrompt(ActaGenerationOptions options)
+    {
+        var langStr = options.Language == LanguageMode.English ? "English" : "Español";
+        var sb = new StringBuilder();
+        sb.AppendLine("Eres un integrador y sintetizador ejecutivo de máxima precisión.");
+        sb.AppendLine($"Idioma obligatorio: {langStr}.");
+        sb.AppendLine("Tu tarea es integrar y consolidar los análisis de las distintas etapas de una reunión larga en una síntesis global coherente.");
+        sb.AppendLine("REGLAS ESTRICTAS:");
+        sb.AppendLine("1. Integra temas que se trataron de forma discontinua en varios momentos de la reunión.");
+        sb.AppendLine("2. Conserva íntegramente los acuerdos y conclusiones del final de la reunión tanto como las del principio.");
+        sb.AppendLine("3. Elimina duplicidades causadas por la superposición de fragmentos.");
+        sb.AppendLine("4. Diferencia con precisión acuerdos adoptados de propuestas pendientes.");
+        sb.AppendLine("5. NO inventes información no contenida en los análisis parciales.");
+
+        if (options.IsImpersonal)
+        {
+            sb.AppendLine("6. Redacción estrictamente impersonal sin identificadores SPEAKER_XX.");
+        }
+
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Construye el prompt de usuario para integrar las síntesis de todos los fragmentos en una representación global.
+    /// </summary>
+    public static string BuildGlobalSynthesisPrompt(
+        IReadOnlyList<string> chunkAnalyses,
+        Meeting meeting,
+        ActaGenerationOptions options)
+    {
+        var sb = new StringBuilder();
+        var langStr = options.Language == LanguageMode.English ? "English" : "Español";
+
+        sb.AppendLine($"Consolida los análisis parciales de la reunión '{meeting.Title}' ({meeting.Duration:hh\\:mm\\:ss}) en una síntesis global.");
+        sb.AppendLine($"Idioma requerido: {langStr}.");
+        sb.AppendLine($"Nivel de detalle del acta final: {options.DetailLevel}. {GetDetailLevelGuidance(options.DetailLevel, options.Language)}");
+        sb.AppendLine();
+        sb.AppendLine("INSTRUCCIONES DE CONSOLIDACIÓN:");
+        sb.AppendLine("- Agrupa los temas por áreas temáticas coherentes, no por orden cronológico estricto.");
+        sb.AppendLine("- Consolida la lista única y no duplicada de todas las decisiones acordadas.");
+        sb.AppendLine("- Consolida la lista de acciones acordadas con responsables y fechas límite.");
+        sb.AppendLine("- Agrupa todas las cuestiones que quedaron abiertas o pendientes de resolución.");
+        sb.AppendLine("- Asegúrate de que las conclusiones tomadas al cierre de la reunión figuren con total claridad.");
+        sb.AppendLine();
+
+        sb.AppendLine("=== ANÁLISIS DE LOS FRAGMENTOS TEMPORALES ===");
+        for (int i = 0; i < chunkAnalyses.Count; i++)
+        {
+            sb.AppendLine($"--- FRAGMENTO #{i + 1} ---");
+            sb.AppendLine(chunkAnalyses[i]);
+            sb.AppendLine();
+        }
+        sb.AppendLine("=== FIN DE ANÁLISIS DE FRAGMENTOS ===");
+
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Construye el prompt final para redactar el acta Markdown definitiva a partir de la síntesis global integrada.
+    /// </summary>
+    public static string BuildFinalDraftFromSynthesisPrompt(
+        string globalSynthesis,
+        Meeting meeting,
+        ActaGenerationOptions options,
+        IVocabularyService? vocabularyService = null)
+    {
+        var sb = new StringBuilder();
+        var langStr = options.Language == LanguageMode.English ? "English" : "Español";
+
+        sb.AppendLine("Eres un redactor ejecutivo de actas oficiales.");
+        sb.AppendLine($"Redacta el acta final completa obligatoriamente en el idioma: {langStr}.");
+        sb.AppendLine($"Nivel de detalle requerido: {options.DetailLevel}.");
+        sb.AppendLine(GetDetailLevelGuidance(options.DetailLevel, options.Language));
+        sb.AppendLine();
+
+        if (options.IsImpersonal)
+        {
+            if (options.Language == LanguageMode.English)
+            {
+                sb.AppendLine("MANDATORY IMPERSONAL MINUTES DIRECTIVES:");
+                sb.AppendLine("Write strictly in an impersonal style. NEVER include SPEAKER_XX or technical speaker identifiers.");
+                sb.AppendLine();
+            }
+            else
+            {
+                sb.AppendLine("DIRECTRICES MANDATORIAS DE ACTA IMPERSONAL:");
+                sb.AppendLine("Redacta de forma estrictamente impersonal. NUNCA incluyas SPEAKER_XX ni identificadores técnicos de hablante.");
+                sb.AppendLine();
+            }
+        }
+
+        sb.AppendLine("ESTRUCTURA DEL ACTA OBLIGATORIA:");
+        sb.AppendLine("# Acta de la Reunión");
+        sb.AppendLine("## Información General");
+        sb.AppendLine($"- Título: {meeting.Title}");
+        sb.AppendLine($"- Fecha: {meeting.Date:dd/MM/yyyy}");
+        if (meeting.StartTime.HasValue) sb.AppendLine($"- Hora de inicio: {meeting.StartTime.Value:HH:mm}");
+        sb.AppendLine($"- Duración: {(int)meeting.Duration.TotalHours:D2}:{meeting.Duration.Minutes:D2}:{meeting.Duration.Seconds:D2}");
+        if (!string.IsNullOrWhiteSpace(meeting.Organizer)) sb.AppendLine($"- Organizador: {meeting.Organizer}");
+        if (!string.IsNullOrWhiteSpace(meeting.Company)) sb.AppendLine($"- Empresa: {meeting.Company}");
+        sb.AppendLine();
+
+        if (options.IncludeParticipants)
+        {
+            sb.AppendLine("## Participantes");
+            var userParticipants = meeting.GetUserParticipants();
+            if (userParticipants.Count > 0)
+            {
+                foreach (var name in userParticipants) sb.AppendLine($"- {name}");
+            }
+            else
+            {
+                sb.AppendLine(options.IsImpersonal
+                    ? "- (Asistentes a la reunión - identidades individuales no especificadas por modalidad impersonal)"
+                    : "- (Sin participantes registrados)");
+            }
+            sb.AppendLine();
+        }
+
+        sb.AppendLine("## Resumen Ejecutivo");
+        sb.AppendLine("## Temas Tratados");
+
+        if (options.IncludeDecisions)
+        {
+            sb.AppendLine("## Decisiones Acordadas");
+        }
+
+        if (options.IncludeActionItems)
+        {
+            sb.AppendLine("## Acciones Acordadas");
+            sb.AppendLine("| Acción | Responsable | Fecha Límite |");
+            sb.AppendLine("|---|---|---|");
+        }
+
+        if (options.IncludePendingQuestions)
+        {
+            sb.AppendLine("## Cuestiones Pendientes");
+        }
+
+        sb.AppendLine("## Próximos Pasos");
+        sb.AppendLine();
+
+        var vocabTerms = vocabularyService?.GetOfficialWords() ?? options.VocabularyTerms;
+        if (vocabTerms != null && vocabTerms.Count > 0)
+        {
+            sb.AppendLine("=== GLOSARIO OFICIAL ===");
+            sb.AppendLine(string.Join(", ", vocabTerms));
+            sb.AppendLine("=== FIN DEL GLOSARIO ===");
+            sb.AppendLine();
+        }
+
+        sb.AppendLine("=== SÍNTESIS CONSOLIDADA DE LA REUNIÓN (CONTIENE TODAS LAS ETAPAS, INICIO A FIN) ===");
+        sb.AppendLine(globalSynthesis);
+        sb.AppendLine("=== FIN DE LA SÍNTESIS ===");
+
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// Construye el prompt para continuar un acta interrumpida por límite de tokens en generación directa.
+    /// </summary>
+    public static string BuildContinuationPrompt(string partialMarkdown, Meeting meeting, ActaGenerationOptions options)
+    {
+        var langStr = options.Language == LanguageMode.English ? "English" : "Español";
+        var sb = new StringBuilder();
+
+        sb.AppendLine($"El acta de la reunión '{meeting.Title}' quedó incompleta porque la respuesta anterior alcanzó el límite de tokens.");
+        sb.AppendLine($"Continúa la redacción exactamente donde se quedó, completando todas las secciones pendientes en {langStr}.");
+        sb.AppendLine("NO repitas el texto ya generado al principio; retoma de inmediato con la siguiente sección o párrafo pendiente hasta el final.");
+        sb.AppendLine();
+        sb.AppendLine("=== TEXTO PARCIAL YA GENERADO (ÚLTIMAS LÍNEAS) ===");
+        var lines = partialMarkdown.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+        int takeLines = Math.Min(15, lines.Length);
+        for (int i = lines.Length - takeLines; i < lines.Length; i++)
+        {
+            sb.AppendLine(lines[i]);
+        }
+        sb.AppendLine("=== FIN DEL TEXTO PREVIO ===");
+
+        return sb.ToString();
     }
 
     public static string SanitizeActaMarkdown(string markdown, Meeting meeting, ActaGenerationOptions options)

@@ -183,5 +183,5 @@ dotnet test
 .\scripts\build-distribution.ps1 -Configuration Release -Runtime win-x64
 ```
 Los artefactos se depositan en el directorio `dist/`:
-- `dist/DictaMeeting-v1.5.5-win-x64-portable.zip`
-- `dist/installer/DictaMeeting-v1.5.5-Setup.exe`
+- `dist/DictaMeeting-v1.5.6-win-x64-portable.zip`
+- `dist/installer/DictaMeeting-v1.5.6-Setup.exe`

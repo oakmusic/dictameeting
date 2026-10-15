@@ -360,7 +360,7 @@ public class OpenRouterActaServiceTests
         using var doc = JsonDocument.Parse(capturedRequestBody);
         var root = doc.RootElement;
         Assert.Equal("openai/gpt-6-luna", root.GetProperty("model").GetString());
-        Assert.Equal(4000, root.GetProperty("max_tokens").GetInt32());
+        Assert.True(root.GetProperty("max_tokens").GetInt32() >= 8000, "El presupuesto adaptativo debe ser >= 8000 tokens para modelos insignia.");
         Assert.False(root.TryGetProperty("temperature", out _));
 
         var reasoning = root.GetProperty("reasoning");
@@ -415,7 +415,7 @@ public class OpenRouterActaServiceTests
         using var doc = JsonDocument.Parse(capturedRequestBody);
         var root = doc.RootElement;
         Assert.Equal("qwen/qwen3.8-flash", root.GetProperty("model").GetString());
-        Assert.Equal(4000, root.GetProperty("max_tokens").GetInt32());
+        Assert.True(root.GetProperty("max_tokens").GetInt32() >= 8000, "El presupuesto adaptativo debe ser >= 8000 tokens para Qwen.");
         Assert.Equal(0.2, root.GetProperty("temperature").GetDouble(), precision: 2);
 
         var reasoning = root.GetProperty("reasoning");
@@ -577,8 +577,20 @@ public class OpenRouterActaServiceTests
         using var doc = JsonDocument.Parse(capturedBody);
         var root = doc.RootElement;
 
-        // El límite de tokens de respuesta del payload principal debe ser 4000
-        Assert.Equal(4000, root.GetProperty("max_tokens").GetInt32());
+        // El límite adaptativo de tokens de respuesta debe ser >= 8000 para nivel Normal con razonamiento
+        Assert.True(root.GetProperty("max_tokens").GetInt32() >= 8000, "El presupuesto debe ser adaptativo y suficiente para el nivel Normal.");
+
+        // Además, si el usuario configura explícitamente MaxOutputTokens, se respeta estrictamente dicho valor base
+        var optionsExplicit = new ActaGenerationOptions
+        {
+            ApiKey = "sk-test",
+            ModelName = "qwen/qwen3.8-flash",
+            MaxOutputTokens = 4000,
+            ReasoningEffort = "none"
+        };
+        await service.GenerateActaAsync(meeting, optionsExplicit);
+        using var docExplicit = JsonDocument.Parse(capturedBody!);
+        Assert.Equal(4000, docExplicit.RootElement.GetProperty("max_tokens").GetInt32());
     }
 
     // 6. No se rompe la selección de idioma del Acta
@@ -690,14 +702,14 @@ public class OpenRouterActaServiceTests
 
         var meeting = new Meeting
         {
-            Title = "Reunión de prueba DictaMeeting 1.5.5",
+            Title = "Reunión de prueba DictaMeeting 1.5.6",
             Date = DateTime.Today,
             Organizer = "Equipo Técnico"
         };
         meeting.Transcript.Add(new TranscriptSegment
         {
             SpeakerId = "SPEAKER_00",
-            Text = "Buenos días. En esta reunión acordamos lanzar la versión 1.5.5 de DictaMeeting con la corrección definitiva para OpenRouter."
+            Text = "Buenos días. En esta reunión acordamos lanzar la versión 1.5.6 de DictaMeeting con la corrección definitiva para OpenRouter."
         });
 
         var options = new ActaGenerationOptions
