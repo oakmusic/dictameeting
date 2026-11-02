@@ -68,7 +68,7 @@
                                            VerticalAlignment="Center"
                                            Margin="0,-1,10,0" />
                                 <Border Background="{DynamicResource AccentLightBrush}" BorderBrush="{DynamicResource AccentPrimaryBrush}" BorderThickness="1" CornerRadius="6" Padding="6,2" Margin="0,0,12,0" VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding AppVersionShortText, FallbackValue='v1.5.6'}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AccentPrimaryBrush}" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding AppVersionShortText, FallbackValue='v1.5.8'}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AccentPrimaryBrush}" VerticalAlignment="Center" />
                                 </Border>
 
                                 <!-- Status Pill with pulsing dot (Control Idle) -->
@@ -1066,7 +1066,9 @@
                                         <ItemsControl ItemsSource="{Binding Participants}">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate DataType="{x:Type vm:SpeakerViewModel}">
-                                                    <Border Background="{DynamicResource CardItemBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="8" Padding="10" Margin="0,0,0,8">
+                                                    <Border Style="{StaticResource SpeakerCardStyle}"
+                                                            ToolTip="{loc:Loc Participants_Voice_Navigate_Tooltip}"
+                                                            MouseLeftButtonDown="SpeakerCard_MouseLeftButtonDown">
                                                         <Grid>
                                                             <Grid.ColumnDefinitions>
                                                                 <ColumnDefinition Width="Auto" />

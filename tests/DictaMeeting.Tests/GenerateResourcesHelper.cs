@@ -173,6 +173,7 @@ public class GenerateResourcesHelper
             ["Participants_Voices_Title"] = ("VOCES DETECTADAS", "DETECTED VOICES"),
             ["Participants_Voices_Subtitle"] = ("Selecciona en el desplegable quién es cada voz.", "Select from dropdown who belongs to each voice."),
             ["Participants_Voice_Select_Tooltip"] = ("Selecciona el asistente correspondiente a esta voz", "Select the attendee corresponding to this voice"),
+            ["Participants_Voice_Navigate_Tooltip"] = ("Ir a la primera intervención", "Go to first utterance"),
             ["Participants_Speaking_Time_Tooltip"] = ("Tiempo total de habla", "Total speaking time"),
             ["Participants_Registered_Format"] = ("{0} registrados", "{0} registered"),
             ["Participants_Voices_Format"] = ("{0} voces", "{0} voices"),

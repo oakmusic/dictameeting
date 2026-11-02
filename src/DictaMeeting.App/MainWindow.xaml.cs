@@ -417,6 +417,22 @@ public partial class MainWindow : Window
         return false;
     }
 
+    private void SpeakerCard_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (e.OriginalSource is DependencyObject depObj &&
+            (IsChildOf<System.Windows.Controls.ComboBox>(depObj) ||
+             IsChildOf<System.Windows.Controls.Primitives.Popup>(depObj) ||
+             IsChildOf<System.Windows.Controls.ComboBoxItem>(depObj)))
+        {
+            return;
+        }
+
+        if (sender is FrameworkElement element && element.DataContext is SpeakerViewModel speaker)
+        {
+            _viewModel?.NavigateToFirstSpeakerUtterance(speaker);
+        }
+    }
+
     private void TranscriptCard_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
         if (sender is FrameworkElement element && element.DataContext is TranscriptSegmentViewModel segment)
@@ -432,34 +448,65 @@ public partial class MainWindow : Window
 
         Dispatcher.BeginInvoke(new Action(() =>
         {
-            try
+            ScrollSegmentIntoView(segment, 0);
+        }), System.Windows.Threading.DispatcherPriority.Background);
+    }
+
+    private void ScrollSegmentIntoView(TranscriptSegmentViewModel segment, int retryCount)
+    {
+        if (segment == null || TranscriptScrollViewer == null || TranscriptItemsControl == null)
+            return;
+
+        try
+        {
+            var container = TranscriptItemsControl.ItemContainerGenerator.ContainerFromItem(segment) as FrameworkElement;
+            if (container == null && _viewModel != null)
             {
-                var container = TranscriptItemsControl.ItemContainerGenerator.ContainerFromItem(segment) as FrameworkElement;
-                if (container != null)
+                int idx = _viewModel.TranscriptSegments.IndexOf(segment);
+                if (idx >= 0)
                 {
-                    var transform = container.TransformToAncestor(TranscriptScrollViewer);
-                    var point = transform.Transform(new Point(0, 0));
-                    double containerTop = point.Y;
-                    double containerBottom = containerTop + container.ActualHeight;
-                    double viewportHeight = TranscriptScrollViewer.ViewportHeight;
-
-                    // If not comfortably visible within viewport margins, scroll smoothly into view
-                    if (containerTop < 10 || containerBottom > viewportHeight - 10)
-                    {
-                        double currentOffset = TranscriptScrollViewer.VerticalOffset;
-                        double targetOffset = currentOffset + containerTop - (viewportHeight * 0.25);
-                        if (targetOffset < 0) targetOffset = 0;
-                        if (targetOffset > TranscriptScrollViewer.ScrollableHeight) targetOffset = TranscriptScrollViewer.ScrollableHeight;
-
-                        TranscriptScrollViewer.ScrollToVerticalOffset(targetOffset);
-                    }
+                    container = TranscriptItemsControl.ItemContainerGenerator.ContainerFromIndex(idx) as FrameworkElement;
                 }
             }
-            catch
+
+            if (container != null)
             {
-                // Non-critical UI helper, suppress layout measure exceptions
+                var transform = container.TransformToAncestor(TranscriptScrollViewer);
+                var point = transform.Transform(new Point(0, 0));
+                double containerTop = point.Y;
+                double containerBottom = containerTop + container.ActualHeight;
+                double viewportHeight = TranscriptScrollViewer.ViewportHeight;
+
+                // If not comfortably visible within viewport margins, scroll smoothly into view
+                if (containerTop < 10 || containerBottom > viewportHeight - 10)
+                {
+                    double currentOffset = TranscriptScrollViewer.VerticalOffset;
+                    double targetOffset = currentOffset + containerTop - (viewportHeight * 0.25);
+                    if (targetOffset < 0) targetOffset = 0;
+                    if (targetOffset > TranscriptScrollViewer.ScrollableHeight) targetOffset = TranscriptScrollViewer.ScrollableHeight;
+
+                    TranscriptScrollViewer.ScrollToVerticalOffset(targetOffset);
+                }
             }
-        }), System.Windows.Threading.DispatcherPriority.Background);
+            else if (retryCount < 2 && _viewModel != null && _viewModel.TranscriptSegments.Count > 0)
+            {
+                int index = _viewModel.TranscriptSegments.IndexOf(segment);
+                if (index >= 0)
+                {
+                    double estimatedOffset = ((double)index / _viewModel.TranscriptSegments.Count) * TranscriptScrollViewer.ScrollableHeight;
+                    TranscriptScrollViewer.ScrollToVerticalOffset(estimatedOffset);
+                    TranscriptScrollViewer.UpdateLayout();
+
+                    // Reintento tras actualizar el layout para elementos virtualizados
+                    Dispatcher.BeginInvoke(new Action(() => ScrollSegmentIntoView(segment, retryCount + 1)),
+                        System.Windows.Threading.DispatcherPriority.Loaded);
+                }
+            }
+        }
+        catch
+        {
+            // Non-critical UI helper, suppress layout measure exceptions
+        }
     }
 
     private void OpenRouterRadio_Click(object sender, RoutedEventArgs e)

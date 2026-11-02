@@ -14,22 +14,10 @@ namespace DictaMeeting.AI.Services;
 
 /// <summary>
 /// Respuesta normalizada de una llamada a la API de Chat Completions de OpenRouter.
+/// Hereda de AiChatResponse para permitir interoperabilidad con la generación jerárquica unificada.
 /// </summary>
-public class OpenRouterChatResponse
+public class OpenRouterChatResponse : AiChatResponse
 {
-    public bool Success { get; set; }
-    public string? Content { get; set; }
-    public string? FinishReason { get; set; }
-    public string? ErrorMessage { get; set; }
-    public int? StatusCode { get; set; }
-    public int? PromptTokens { get; set; }
-    public int? CompletionTokens { get; set; }
-    public int? ReasoningTokens { get; set; }
-    public int? TotalTokens { get; set; }
-    public bool IsTruncated => string.Equals(FinishReason, "length", StringComparison.OrdinalIgnoreCase);
-    public string? Refusal { get; set; }
-    public string? ModelUsed { get; set; }
-    public string? RequestId { get; set; }
 }
 
 /// <summary>
@@ -240,10 +228,11 @@ public class OpenRouterActaService : IAiActaService, IAiActaProvider
                 return await HierarchicalActaGenerator.GenerateHierarchicalActaAsync(
                     meeting,
                     options,
-                    (payload, ct) => SendChatCompletionPayloadAsync(payload, apiKey, ct),
-                    _vocabularyService,
-                    _logger,
-                    cancellationToken);
+                    async (payload, ct) => await SendChatCompletionPayloadAsync(payload, apiKey, ct),
+                    payloadBuilder: null,
+                    vocabularyService: _vocabularyService,
+                    logger: _logger,
+                    cancellationToken: cancellationToken);
             }
 
             // 4. Generación directa para reuniones cortas/medianas

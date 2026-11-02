@@ -1482,7 +1482,7 @@ public partial class MainViewModel : ObservableObject
         get
         {
             var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
-            if (version == null) return "Versión 1.5.6";
+            if (version == null) return "Versión 1.5.8";
             return version.Revision > 0
                 ? $"Versión {version.Major}.{version.Minor}.{version.Build} r{version.Revision}"
                 : $"Versión {version.Major}.{version.Minor}.{version.Build}";
@@ -1494,7 +1494,7 @@ public partial class MainViewModel : ObservableObject
         get
         {
             var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
-            if (version == null) return "v1.5.6";
+            if (version == null) return "v1.5.8";
             return version.Revision > 0
                 ? $"v{version.Major}.{version.Minor}.{version.Build}r{version.Revision}"
                 : $"v{version.Major}.{version.Minor}.{version.Build}";
@@ -2040,6 +2040,81 @@ public partial class MainViewModel : ObservableObject
         _transcriptAudioSyncService.UpdateActiveSegment(TimeSpan.Zero);
     }
 
+    private void OnActiveTranscriptSegmentChanged(object? sender, TranscriptSegmentViewModel? activeSeg)
+    {
+        var activeSpeakerId = activeSeg?.SpeakerId;
+        foreach (var p in Participants)
+        {
+            p.IsSelected = !string.IsNullOrEmpty(activeSpeakerId) &&
+                           string.Equals(p.Id, activeSpeakerId, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    [RelayCommand]
+    public void NavigateToFirstSpeakerUtterance(SpeakerViewModel? speaker)
+    {
+        if (speaker == null || string.IsNullOrWhiteSpace(speaker.Id)) return;
+        if (TranscriptSegments.Count == 0) return;
+
+        // 1. Identificar el speaker correspondiente mediante su identificador interno, no mediante el nombre que aparece visualmente.
+        // 2. Buscar todas sus intervenciones en la transcripción final diarizada.
+        var speakerSegments = TranscriptSegments
+            .Where(s => !string.IsNullOrEmpty(s.SpeakerId) &&
+                        string.Equals(s.SpeakerId, speaker.Id, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        // 3. Si el speaker no tiene ninguna intervención asociada, no modifiques la posición del audio ni la selección actual.
+        if (speakerSegments.Count == 0)
+        {
+            _logger?.LogInformation("El interlocutor {SpeakerId} no tiene intervenciones en la transcripción actual", speaker.Id);
+            return;
+        }
+
+        // 4. Asegurar que los timestamps están resueltos correctamente (incluso si proceden de formato texto).
+        foreach (var s in speakerSegments)
+        {
+            if (s.StartTime == TimeSpan.Zero && s.EndTime == TimeSpan.Zero &&
+                !string.IsNullOrWhiteSpace(s.FormattedTime) &&
+                s.FormattedTime != "00:00:00")
+            {
+                if (TimeSpan.TryParse(s.FormattedTime, out var parsed))
+                {
+                    s.StartTime = parsed;
+                    if (s.EndTime <= s.StartTime)
+                    {
+                        s.EndTime = parsed + TimeSpan.FromSeconds(3);
+                    }
+                }
+            }
+        }
+
+        // 5. Localizar la primera intervención cronológicamente, utilizando su timestamp inicial.
+        var firstSegment = speakerSegments.OrderBy(s => s.StartTime).First();
+
+        // 6. Seleccionar esa intervención y resaltar la tarjeta del speaker
+        foreach (var p in Participants)
+        {
+            p.IsSelected = (p == speaker);
+        }
+
+        _transcriptAudioSyncService.SetActiveSegment(firstSegment);
+
+        // 7. Desplazar automáticamente el panel de transcripción hasta esa tarjeta, haciéndola visible.
+        _suppressNextAutoScroll = true;
+        RequestScrollToSegment?.Invoke(this, firstSegment);
+
+        // 8. Posicionar el reproductor de audio exactamente en el timestamp inicial de esa intervención.
+        if (HasPlayerAudio || _audioPlayerService.HasAudio)
+        {
+            var pos = _transcriptAudioSyncService.GetPositionForSegment(firstSegment);
+            _audioPlayerService.Seek(pos);
+            _isUserSeekingAudio = false;
+            AudioSliderValue = _audioPlayerService.Position.TotalSeconds;
+            OnPropertyChanged(nameof(AudioPosition));
+            OnPropertyChanged(nameof(AudioPositionText));
+        }
+    }
+
     #endregion
 
     [ObservableProperty]
@@ -2105,6 +2180,7 @@ public partial class MainViewModel : ObservableObject
         _audioPlayerService.PlaybackStateChanged += OnAudioPlayerPlaybackStateChanged;
         _audioPlayerService.MediaOpened += OnAudioPlayerMediaOpened;
         _audioPlayerService.MediaEnded += OnAudioPlayerMediaEnded;
+        _transcriptAudioSyncService.ActiveSegmentChanged += OnActiveTranscriptSegmentChanged;
 
         _meetingProcessingService = meetingProcessingService ?? new DictaMeeting.App.Services.MeetingProcessingService(
             repository,

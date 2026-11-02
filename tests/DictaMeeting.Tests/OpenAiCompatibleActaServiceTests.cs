@@ -135,7 +135,7 @@ public class OpenAiCompatibleActaServiceTests
         Assert.Equal("qwen3.8-27b", root.GetProperty("model").GetString());
         Assert.True(root.TryGetProperty("messages", out var messages));
         Assert.Equal(2, messages.GetArrayLength()); // system + user
-        Assert.Equal(4000, root.GetProperty("max_tokens").GetInt32());
+        Assert.Equal(8000, root.GetProperty("max_tokens").GetInt32());
         Assert.False(root.TryGetProperty("reasoning", out _));
         Assert.False(root.TryGetProperty("temperature", out _));
     }
@@ -608,5 +608,344 @@ public class OpenAiCompatibleActaServiceTests
 
         Assert.False(result.Success);
         Assert.Contains("Respuesta incompatible", result.Message);
+    }
+
+    // 18. Dynamic Token Budget - Exhaustiva solicita 16.000 tokens en modelos compatibles (ej. Qwen)
+    [Fact]
+    public async Task GenerateActaAsync_DetailLevelExhaustiva_Requests16000Tokens()
+    {
+        string? capturedBody = null;
+        var mockHandler = new MockHttpMessageHandler
+        {
+            HandlerFunc = async request =>
+            {
+                capturedBody = await request.Content!.ReadAsStringAsync();
+                var resp = new
+                {
+                    choices = new[]
+                    {
+                        new
+                        {
+                            message = new { role = "assistant", content = "# Acta Exhaustiva\nDetalle completo." },
+                            finish_reason = "stop"
+                        }
+                    },
+                    usage = new { prompt_tokens = 2000, completion_tokens = 1500, total_tokens = 3500 }
+                };
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(JsonSerializer.Serialize(resp), Encoding.UTF8, "application/json")
+                };
+            }
+        };
+
+        var service = new OpenAiCompatibleActaService(new HttpClient(mockHandler));
+        var meeting = new Meeting { Title = "Reunión Técnica" };
+        meeting.Transcript.Add(new TranscriptSegment { Text = "Debate sobre arquitectura y despliegue." });
+
+        var options = new ActaGenerationOptions
+        {
+            Endpoint = "https://internal-ai.empresa.local/v1",
+            CustomModelName = "qwen3.8-27b",
+            ApiKey = "token-123",
+            DetailLevel = ActaDetailLevel.Exhaustiva
+        };
+
+        var result = await service.GenerateActaAsync(meeting, options);
+
+        Assert.True(result.Success);
+        Assert.NotNull(capturedBody);
+        using var doc = JsonDocument.Parse(capturedBody);
+        Assert.Equal(16000, doc.RootElement.GetProperty("max_tokens").GetInt32());
+    }
+
+    // 19. Dynamic Token Budget - Breve y Detallada solicitan sus respectivos presupuestos
+    [Theory]
+    [InlineData(ActaDetailLevel.Breve, 4000)]
+    [InlineData(ActaDetailLevel.Normal, 8000)]
+    [InlineData(ActaDetailLevel.Detallada, 12000)]
+    public async Task GenerateActaAsync_DifferentDetailLevels_RequestAppropriateBudgets(ActaDetailLevel detailLevel, int expectedTokens)
+    {
+        string? capturedBody = null;
+        var mockHandler = new MockHttpMessageHandler
+        {
+            HandlerFunc = async request =>
+            {
+                capturedBody = await request.Content!.ReadAsStringAsync();
+                var resp = new
+                {
+                    choices = new[]
+                    {
+                        new
+                        {
+                            message = new { role = "assistant", content = "# Acta\nResumen." },
+                            finish_reason = "stop"
+                        }
+                    }
+                };
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(JsonSerializer.Serialize(resp), Encoding.UTF8, "application/json")
+                };
+            }
+        };
+
+        var service = new OpenAiCompatibleActaService(new HttpClient(mockHandler));
+        var meeting = new Meeting { Title = "Reunión Corta" };
+        meeting.Transcript.Add(new TranscriptSegment { Text = "Prueba de presupuesto de tokens." });
+
+        var options = new ActaGenerationOptions
+        {
+            Endpoint = "https://internal-ai.empresa.local/v1",
+            CustomModelName = "qwen3.8-27b",
+            ApiKey = "token-123",
+            DetailLevel = detailLevel
+        };
+
+        var result = await service.GenerateActaAsync(meeting, options);
+
+        Assert.True(result.Success);
+        Assert.NotNull(capturedBody);
+        using var doc = JsonDocument.Parse(capturedBody);
+        Assert.Equal(expectedTokens, doc.RootElement.GetProperty("max_tokens").GetInt32());
+    }
+
+    // 20. Truncamiento y Recuperación - Respuesta truncada con finish_reason='length' activa continuación
+    [Fact]
+    public async Task GenerateActaAsync_TruncatedResponse_TriggersContinuationAndRecovers()
+    {
+        int requestCount = 0;
+        var mockHandler = new MockHttpMessageHandler
+        {
+            HandlerFunc = _ =>
+            {
+                requestCount++;
+                if (requestCount == 1)
+                {
+                    // Primera respuesta: truncada a mitad de texto
+                    var resp1 = new
+                    {
+                        choices = new[]
+                        {
+                            new
+                            {
+                                message = new { role = "assistant", content = "# Acta Incompleta\n\n## 1. Contexto\nDebate inicial sobre la propuesta." },
+                                finish_reason = "length"
+                            }
+                        },
+                        usage = new { prompt_tokens = 1000, completion_tokens = 4000, total_tokens = 5000 }
+                    };
+                    return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent(JsonSerializer.Serialize(resp1), Encoding.UTF8, "application/json")
+                    });
+                }
+                else
+                {
+                    // Segunda respuesta: continuación completada
+                    var resp2 = new
+                    {
+                        choices = new[]
+                        {
+                            new
+                            {
+                                message = new { role = "assistant", content = "## 2. Acuerdos y Decisiones\nSe aprueba el plan de desarrollo." },
+                                finish_reason = "stop"
+                            }
+                        },
+                        usage = new { prompt_tokens = 1500, completion_tokens = 500, total_tokens = 2000 }
+                    };
+                    return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent(JsonSerializer.Serialize(resp2), Encoding.UTF8, "application/json")
+                    });
+                }
+            }
+        };
+
+        var service = new OpenAiCompatibleActaService(new HttpClient(mockHandler));
+        var meeting = new Meeting { Title = "Reunión de Truncamiento" };
+        meeting.Transcript.Add(new TranscriptSegment { Text = "Contenido extenso de prueba." });
+
+        var options = new ActaGenerationOptions
+        {
+            Endpoint = "https://internal-ai.empresa.local/v1",
+            CustomModelName = "qwen3.8-27b",
+            ApiKey = "token-123"
+        };
+
+        var result = await service.GenerateActaAsync(meeting, options);
+
+        Assert.True(result.Success);
+        Assert.True(result.WasRecovered);
+        Assert.Equal(2, requestCount);
+        Assert.Contains("Debate inicial sobre la propuesta", result.MarkdownContent);
+        Assert.Contains("Se aprueba el plan de desarrollo", result.MarkdownContent);
+        Assert.Equal("stop", result.FinishReason);
+    }
+
+    // 21. Truncamiento no recuperable - Si la respuesta sigue truncada tras reintentos, marca IsTruncated y no valida
+    [Fact]
+    public async Task GenerateActaAsync_UnrecoverableTruncation_ReturnsErrorWithTruncatedFlag()
+    {
+        var mockHandler = new MockHttpMessageHandler
+        {
+            HandlerFunc = _ =>
+            {
+                var resp = new
+                {
+                    choices = new[]
+                    {
+                        new
+                        {
+                            message = new { role = "assistant", content = "# Acta Truncada sin fin..." },
+                            finish_reason = "length"
+                        }
+                    },
+                    usage = new { prompt_tokens = 1000, completion_tokens = 4000, total_tokens = 5000 }
+                };
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(JsonSerializer.Serialize(resp), Encoding.UTF8, "application/json")
+                });
+            }
+        };
+
+        var service = new OpenAiCompatibleActaService(new HttpClient(mockHandler));
+        var meeting = new Meeting { Title = "Reunión Incompleta" };
+        meeting.Transcript.Add(new TranscriptSegment { Text = "Texto" });
+
+        var options = new ActaGenerationOptions
+        {
+            Endpoint = "https://internal-ai.empresa.local/v1",
+            CustomModelName = "qwen3.8-27b",
+            ApiKey = "token-123"
+        };
+
+        var result = await service.GenerateActaAsync(meeting, options);
+
+        Assert.False(result.Success);
+        Assert.True(result.IsTruncated);
+        Assert.Contains("límite de tokens", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+    }
+
+    // 22. Detección de Desbordamiento de Ventana de Contexto
+    [Fact]
+    public async Task GenerateActaAsync_PromptExceedsContextWindow_ReturnsErrorBeforeSending()
+    {
+        var mockHandler = new MockHttpMessageHandler();
+        var service = new OpenAiCompatibleActaService(new HttpClient(mockHandler));
+
+        var meeting = new Meeting { Title = "Reunión Gigante" };
+        // Simular texto de más de 500.000 caracteres (~150.000 tokens) que supera los 128.000 de Qwen
+        var sb = new StringBuilder();
+        for (int i = 0; i < 7500; i++)
+        {
+            sb.Append("Este es un segmento largo de discusión sobre temas técnicos y operativos en el consorcio. ");
+        }
+        meeting.Transcript.Add(new TranscriptSegment { Text = sb.ToString() });
+
+        var options = new ActaGenerationOptions
+        {
+            Endpoint = "https://internal-ai.empresa.local/v1",
+            CustomModelName = "qwen3.8-27b",
+            ApiKey = "token-123",
+            DisableHierarchicalProcessing = true // Forzar comprobación de generación directa
+        };
+
+        var result = await service.GenerateActaAsync(meeting, options);
+
+        Assert.False(result.Success);
+        Assert.Contains("excede la ventana de contexto", result.ErrorMessage, StringComparison.OrdinalIgnoreCase);
+        Assert.Null(mockHandler.LastRequest); // Verificado: no llegó a llamar a la red
+    }
+
+    // 23. Generación Jerárquica activada en reuniones largas en el Servidor Personalizado
+    [Fact]
+    public async Task GenerateActaAsync_LongMeeting_TriggersHierarchicalGeneration()
+    {
+        var executedStages = new List<string>();
+        var mockHandler = new MockHttpMessageHandler
+        {
+            HandlerFunc = async request =>
+            {
+                var body = await request.Content!.ReadAsStringAsync();
+                using var doc = JsonDocument.Parse(body);
+                var messages = doc.RootElement.GetProperty("messages");
+                var systemMsg = messages[0].GetProperty("content").GetString() ?? "";
+
+                string content;
+                if (systemMsg.Contains("analista ejecutivo", StringComparison.OrdinalIgnoreCase) ||
+                    systemMsg.Contains("fragmento temporal", StringComparison.OrdinalIgnoreCase))
+                {
+                    executedStages.Add("extraction");
+                    content = "### Extracción de Fragmento\n- Punto 1 tratado.\n- Acuerdo preliminar.";
+                }
+                else if (systemMsg.Contains("integrador y sintetizador", StringComparison.OrdinalIgnoreCase))
+                {
+                    executedStages.Add("synthesis");
+                    content = "### Síntesis Global\n- Temas clave consolidados.";
+                }
+                else
+                {
+                    executedStages.Add("final_draft");
+                    content = "# Acta Ejecutiva Consolidada\n\n## 1. Resumen Ejecutivo\nResumen final.\n\n## 2. Acuerdos y Decisiones\n1. Acuerdo 1.";
+                }
+
+                var resp = new
+                {
+                    choices = new[]
+                    {
+                        new
+                        {
+                            message = new { role = "assistant", content },
+                            finish_reason = "stop"
+                        }
+                    },
+                    usage = new { prompt_tokens = 500, completion_tokens = 300, total_tokens = 800 }
+                };
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(JsonSerializer.Serialize(resp), Encoding.UTF8, "application/json")
+                };
+            }
+        };
+
+        var service = new OpenAiCompatibleActaService(new HttpClient(mockHandler));
+        var now = DateTimeOffset.Now;
+        var meeting = new Meeting
+        {
+            Title = "Reunión Extensa de 76 Minutos",
+            StartTime = now,
+            EndTime = now.AddMinutes(76) // Duración >= 60 min activa jerárquico
+        };
+
+        // Crear transcripción con suficientes segmentos para justificar fragmentación
+        for (int i = 0; i < 40; i++)
+        {
+            meeting.Transcript.Add(new TranscriptSegment
+            {
+                SpeakerId = i % 2 == 0 ? "SPEAKER_00" : "SPEAKER_01",
+                StartTime = TimeSpan.FromMinutes(i * 1.8),
+                EndTime = TimeSpan.FromMinutes((i + 1) * 1.8),
+                Text = $"Discusión en el minuto {i * 1.8} sobre los avances de proyecto e integración con APIs y modelos de lenguaje corporativos."
+            });
+        }
+
+        var options = new ActaGenerationOptions
+        {
+            Endpoint = "https://internal-ai.empresa.local/v1",
+            CustomModelName = "qwen3.8-27b",
+            ApiKey = "token-123",
+            DetailLevel = ActaDetailLevel.Exhaustiva
+        };
+
+        var result = await service.GenerateActaAsync(meeting, options);
+
+        Assert.True(result.Success, result.ErrorMessage);
+        Assert.True(result.StagesExecuted > 1);
+        Assert.Contains("extraction", executedStages);
+        Assert.Contains("final_draft", executedStages);
+        Assert.Contains("Acta Ejecutiva Consolidada", result.MarkdownContent);
     }
 }

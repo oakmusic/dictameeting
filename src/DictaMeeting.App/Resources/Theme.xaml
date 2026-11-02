@@ -995,6 +995,28 @@
             </DataTrigger>
         </Style.Triggers>
     </Style>
+
+    <!-- Estilo para las tarjetas de speaker en el panel lateral de Voces Detectadas -->
+    <Style x:Key="SpeakerCardStyle" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource CardItemBgBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="8" />
+        <Setter Property="Padding" Value="10" />
+        <Setter Property="Margin" Value="0,0,0,8" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="BorderBrush" Value="{DynamicResource BorderFocusBrush}" />
+                <Setter Property="Background" Value="{DynamicResource ListItemHoverBrush}" />
+            </Trigger>
+            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                <Setter Property="BorderBrush" Value="{DynamicResource AccentPrimaryBrush}" />
+                <Setter Property="BorderThickness" Value="1.5" />
+                <Setter Property="Background" Value="{DynamicResource AccentLightBrush}" />
+            </DataTrigger>
+        </Style.Triggers>
+    </Style>
  
     <!-- ================================================================= -->
     <!-- MARKDIG WPF MARKDOWN RENDERING STYLES                            -->

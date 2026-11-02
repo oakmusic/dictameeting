@@ -702,14 +702,14 @@ public class OpenRouterActaServiceTests
 
         var meeting = new Meeting
         {
-            Title = "Reunión de prueba DictaMeeting 1.5.6",
+            Title = "Reunión de prueba DictaMeeting 1.5.8",
             Date = DateTime.Today,
             Organizer = "Equipo Técnico"
         };
         meeting.Transcript.Add(new TranscriptSegment
         {
             SpeakerId = "SPEAKER_00",
-            Text = "Buenos días. En esta reunión acordamos lanzar la versión 1.5.6 de DictaMeeting con la corrección definitiva para OpenRouter."
+            Text = "Buenos días. En esta reunión acordamos lanzar la versión 1.5.8 de DictaMeeting con la corrección definitiva para OpenRouter."
         });
 
         var options = new ActaGenerationOptions
@@ -810,7 +810,7 @@ public class OpenRouterActaServiceTests
             using var doc = JsonDocument.Parse(receivedRequestBody);
             var root = doc.RootElement;
             Assert.Equal("custom-local-model", root.GetProperty("model").GetString());
-            Assert.Equal(4000, root.GetProperty("max_tokens").GetInt32());
+            Assert.Equal(8000, root.GetProperty("max_tokens").GetInt32());
             Assert.False(root.TryGetProperty("reasoning", out _), "El Custom Provider no debe incluir propiedad reasoning.");
             Assert.False(root.TryGetProperty("temperature", out _), "El Custom Provider no debe incluir propiedad temperature.");
         }

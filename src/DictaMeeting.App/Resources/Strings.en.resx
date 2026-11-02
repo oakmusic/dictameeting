@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <root>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
@@ -449,6 +449,9 @@
   </data>
   <data name="Participants_Voice_Select_Tooltip" xml:space="preserve">
     <value>Select the attendee corresponding to this voice</value>
+  </data>
+  <data name="Participants_Voice_Navigate_Tooltip" xml:space="preserve">
+    <value>Go to first utterance</value>
   </data>
   <data name="Participants_Speaking_Time_Tooltip" xml:space="preserve">
     <value>Total speaking time</value>

@@ -101,7 +101,7 @@ public class SherpaQwenTranscriptionService : ITranscriptionService
         }
     }
 
-    private OfflineRecognizer CreateRecognizer(string modelPath, LanguageMode language)
+    private OfflineRecognizer CreateRecognizer(string modelPath, LanguageMode language, bool includeHotwords = true)
     {
         string convFrontend = Path.Combine(modelPath, "conv_frontend.onnx");
         if (!File.Exists(convFrontend))
@@ -135,20 +135,24 @@ public class SherpaQwenTranscriptionService : ITranscriptionService
             tokenizerDir = modelPath;
         }
 
-        string defaultHotwords = language switch
+        string hotwords = string.Empty;
+        if (includeHotwords)
         {
-            LanguageMode.Spanish => "reunión, acta, acuerdo, proyecto",
-            LanguageMode.English => "meeting, action item, project",
-            _ => string.Empty
-        };
+            string defaultHotwords = language switch
+            {
+                LanguageMode.Spanish => "reunión, acta, acuerdo, proyecto",
+                LanguageMode.English => "meeting, action item, project",
+                _ => string.Empty
+            };
 
-        // Acotamos hotwords a un máximo prudente (ej. 15 términos prioritarios de usuario) para no saturar
-        // el scaffold de prompt de sherpa-onnx (límite de 48 tokens) ni restar espacio al KV-cache de 512 tokens.
-        // La corrección exhaustiva de todos los términos y variantes se ejecuta de forma determinista con ReplaceAliases().
-        string userHotwords = _vocabularyService?.FormatSherpaHotwords(15) ?? string.Empty;
-        string hotwords = string.IsNullOrWhiteSpace(userHotwords)
-            ? defaultHotwords
-            : (string.IsNullOrWhiteSpace(defaultHotwords) ? userHotwords : $"{userHotwords}, {defaultHotwords}");
+            // Acotamos hotwords a un máximo prudente (ej. 15 términos prioritarios de usuario) para no saturar
+            // el scaffold de prompt de sherpa-onnx (límite de 48 tokens) ni restar espacio al KV-cache de 512 tokens.
+            // La corrección exhaustiva de todos los términos y variantes se ejecuta de forma determinista con ReplaceAliases().
+            string userHotwords = _vocabularyService?.FormatSherpaHotwords(15) ?? string.Empty;
+            hotwords = string.IsNullOrWhiteSpace(userHotwords)
+                ? defaultHotwords
+                : (string.IsNullOrWhiteSpace(defaultHotwords) ? userHotwords : $"{userHotwords}, {defaultHotwords}");
+        }
 
         var qwen = new OfflineQwen3AsrModelConfig
         {
@@ -239,117 +243,67 @@ public class SherpaQwenTranscriptionService : ITranscriptionService
 
                 // 3. Crear instancia local para decodificación de archivo
                 using var recognizer = CreateRecognizer(modelPath, language);
+                OfflineRecognizer? recognizerNoHotwords = null;
+                var officialVocabulary = _vocabularyService?.GetOfficialWords() ?? Array.Empty<string>();
 
-                if (_vad != null && speechRegions.Count > 0)
+                try
                 {
-                    // Decodificación de alta precisión basada en regiones de voz delimitadas por Silero VAD
-                    float[] allSamples;
-                    using (var waveReader = new WaveFileReader(tempWavPath))
+                    if (_vad != null && speechRegions.Count > 0)
                     {
-                        int sampleCount = (int)waveReader.SampleCount;
-                        allSamples = new float[sampleCount];
-                        byte[] byteBuffer = new byte[waveReader.Length];
-                        int bytesRead = waveReader.Read(byteBuffer, 0, byteBuffer.Length);
-                        int samplesRead = bytesRead / 2;
-                        for (int i = 0; i < samplesRead; i++)
+                        // Decodificación de alta precisión basada en regiones de voz delimitadas por Silero VAD
+                        float[] allSamples;
+                        using (var waveReader = new WaveFileReader(tempWavPath))
                         {
-                            short s = BitConverter.ToInt16(byteBuffer, i * 2);
-                            allSamples[i] = s / 32768.0f;
-                        }
-                    }
-
-                    for (int r = 0; r < speechRegions.Count; r++)
-                    {
-                        cancellationToken.ThrowIfCancellationRequested();
-                        var region = speechRegions[r];
-
-                        int startSample = Math.Clamp(region.StartSample, 0, allSamples.Length);
-                        int endSample = Math.Clamp(region.EndSample, startSample, allSamples.Length);
-                        int sampleCount = endSample - startSample;
-                        if (sampleCount <= 0) continue;
-
-                        float[] regionSamples = new float[sampleCount];
-                        Array.Copy(allSamples, startSample, regionSamples, 0, sampleCount);
-
-                        using var stream = recognizer.CreateStream();
-                        if (stream.Handle != IntPtr.Zero)
-                        {
-                            stream.AcceptWaveform(16000, regionSamples);
-                            recognizer.Decode(stream);
-
-                            string? text = null;
-                            try
+                            int sampleCount = (int)waveReader.SampleCount;
+                            allSamples = new float[sampleCount];
+                            byte[] byteBuffer = new byte[waveReader.Length];
+                            int totalBytesRead = 0;
+                            while (totalBytesRead < byteBuffer.Length)
                             {
-                                text = stream.Result?.Text?.Trim();
+                                int read = waveReader.Read(byteBuffer, totalBytesRead, byteBuffer.Length - totalBytesRead);
+                                if (read <= 0) break;
+                                totalBytesRead += read;
                             }
-                            catch (Exception ex)
+                            int samplesRead = totalBytesRead / 2;
+                            for (int i = 0; i < samplesRead; i++)
                             {
-                                _logger?.LogWarning(ex, "Error al obtener texto de Qwen3-ASR para la región {Start} a {End}.", region.StartTime, region.EndTime);
-                            }
-
-                            if (!string.IsNullOrWhiteSpace(text))
-                            {
-                                segments.Add(new TranscriptSegment
-                                {
-                                    StartTime = region.StartTime,
-                                    EndTime = region.EndTime,
-                                    Text = text,
-                                    Confidence = region.AverageProbability,
-                                    IsFinal = true
-                                });
+                                short s = BitConverter.ToInt16(byteBuffer, i * 2);
+                                allSamples[i] = s / 32768.0f;
                             }
                         }
 
-                        double p = 0.20 + (0.80 * ((double)(r + 1) / speechRegions.Count));
-                        progress?.Report(p);
-                    }
-                }
-                else if (_vad != null && speechRegions.Count == 0)
-                {
-                    _logger?.LogInformation("Silero VAD no detectó actividad de voz en el audio '{Path}'.", audioFilePath);
-                    progress?.Report(1.0);
-                }
-                else
-                {
-                    // Fallback por ventanas de 20s si VAD no está presente
-                    using var waveReader = new WaveFileReader(tempWavPath);
-                    long totalBytes = waveReader.Length;
-                    if (totalBytes <= 0) totalBytes = 1;
-
-                    byte[] byteBuffer = new byte[16000 * 2 * 20];
-                    long bytesReadTotal = 0;
-                    TimeSpan currentOffset = TimeSpan.Zero;
-                    int bytesRead;
-
-                    while ((bytesRead = waveReader.Read(byteBuffer, 0, byteBuffer.Length)) > 0)
-                    {
-                        cancellationToken.ThrowIfCancellationRequested();
-
-                        int sampleCount = bytesRead / 2;
-                        float[] activeSamples = new float[sampleCount];
-                        for (int i = 0; i < sampleCount; i++)
+                        for (int r = 0; r < speechRegions.Count; r++)
                         {
-                            short sample = BitConverter.ToInt16(byteBuffer, i * 2);
-                            activeSamples[i] = sample / 32768.0f;
-                        }
+                            cancellationToken.ThrowIfCancellationRequested();
+                            var region = speechRegions[r];
 
-                        float energy = 0f;
-                        for (int i = 0; i < activeSamples.Length; i++)
-                        {
-                            energy += activeSamples[i] * activeSamples[i];
-                        }
-                        energy = (float)Math.Sqrt(energy / activeSamples.Length);
+                            int startSample = Math.Clamp(region.StartSample, 0, allSamples.Length);
+                            int endSample = Math.Clamp(region.EndSample, startSample, allSamples.Length);
+                            int sampleCount = endSample - startSample;
+                            if (sampleCount <= 0) continue;
 
-                        TimeSpan chunkDuration = TimeSpan.FromSeconds((double)sampleCount / 16000.0);
-                        TimeSpan segmentStart = currentOffset;
-                        TimeSpan segmentEnd = currentOffset + chunkDuration;
+                            float[] regionSamples = new float[sampleCount];
+                            Array.Copy(allSamples, startSample, regionSamples, 0, sampleCount);
 
-                        if (energy > 0.001f)
-                        {
+                            // Pre-filtro de energía acústica en la región para descartar micro-ruidos o toses sin voz
+                            float regionEnergy = 0f;
+                            for (int i = 0; i < sampleCount; i++)
+                            {
+                                regionEnergy += regionSamples[i] * regionSamples[i];
+                            }
+                            float regionRms = (float)Math.Sqrt(regionEnergy / sampleCount);
+
+                            if ((region.Duration.TotalMilliseconds < 350 && region.AverageProbability < 0.40f) || regionRms < 0.003f)
+                            {
+                                _logger?.LogDebug("Región VAD descartada por bajo nivel acústico/probabilidad ({Start}-{End}, Duración: {Dur:F0}ms, Prob: {Prob:F2}, RMS: {Rms:F4}).",
+                                    region.StartTime, region.EndTime, region.Duration.TotalMilliseconds, region.AverageProbability, regionRms);
+                                continue;
+                            }
+
                             using var stream = recognizer.CreateStream();
                             if (stream.Handle != IntPtr.Zero)
                             {
-                                stream.AcceptWaveform(16000, activeSamples);
+                                stream.AcceptWaveform(16000, regionSamples);
                                 recognizer.Decode(stream);
 
                                 string? text = null;
@@ -359,29 +313,166 @@ public class SherpaQwenTranscriptionService : ITranscriptionService
                                 }
                                 catch (Exception ex)
                                 {
-                                    _logger?.LogWarning(ex, "Error al obtener texto del resultado de decodificación.");
+                                    _logger?.LogWarning(ex, "Error al obtener texto de Qwen3-ASR para la región {Start} a {End}.", region.StartTime, region.EndTime);
                                 }
 
                                 if (!string.IsNullOrWhiteSpace(text))
                                 {
-                                    segments.Add(new TranscriptSegment
+                                    var anomaly = AsrAnomalyDetector.DetectAnomaly(text, region.Duration, officialVocabulary);
+                                    if (anomaly.IsAnomalous)
                                     {
-                                        StartTime = segmentStart,
-                                        EndTime = segmentEnd,
-                                        Text = text,
-                                        Confidence = 0.95f,
-                                        IsFinal = true
-                                    });
+                                        _logger?.LogWarning("Anomalía ASR detectada en región {Start} a {End} ({Reason}): '{Text}'. Intentando recuperación...",
+                                            region.StartTime, region.EndTime, anomaly.Reason, text);
+
+                                        recognizerNoHotwords ??= CreateRecognizer(modelPath, language, includeHotwords: false);
+
+                                        using var retryStream = recognizerNoHotwords.CreateStream();
+                                        if (retryStream.Handle != IntPtr.Zero)
+                                        {
+                                            retryStream.AcceptWaveform(16000, regionSamples);
+                                            recognizerNoHotwords.Decode(retryStream);
+
+                                            string? retryText = null;
+                                            try
+                                            {
+                                                retryText = retryStream.Result?.Text?.Trim();
+                                            }
+                                            catch (Exception ex)
+                                            {
+                                                _logger?.LogWarning(ex, "Error en reintento de decodificación ASR.");
+                                            }
+
+                                            var retryAnomaly = AsrAnomalyDetector.DetectAnomaly(retryText, region.Duration, officialVocabulary);
+                                            if (!string.IsNullOrWhiteSpace(retryText) && !retryAnomaly.IsAnomalous)
+                                            {
+                                                _logger?.LogInformation("Fragmento en {Start} a {End} recuperado con éxito sin hotwords: '{Recovered}'",
+                                                    region.StartTime, region.EndTime, retryText);
+                                                text = retryText;
+                                            }
+                                            else
+                                            {
+                                                if (string.IsNullOrWhiteSpace(retryText) && region.Duration.TotalSeconds < 0.6)
+                                                {
+                                                    _logger?.LogInformation("Fragmento espurio/ruido en {Start} a {End} descartado tras reintento.",
+                                                        region.StartTime, region.EndTime);
+                                                    text = null;
+                                                }
+                                                else
+                                                {
+                                                    _logger?.LogWarning("Fragmento en {Start} a {End} no recuperable. Marcado para revisión.",
+                                                        region.StartTime, region.EndTime);
+                                                    text = "[Ininteligible / pendiente de revisión]";
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    if (!string.IsNullOrWhiteSpace(text))
+                                    {
+                                        float confidence = text == "[Ininteligible / pendiente de revisión]" ? 0.0f : region.AverageProbability;
+                                        segments.Add(new TranscriptSegment
+                                        {
+                                            StartTime = region.StartTime,
+                                            EndTime = region.EndTime,
+                                            Text = text,
+                                            Confidence = confidence,
+                                            IsFinal = true
+                                        });
+                                    }
                                 }
                             }
+
+                            double p = 0.20 + (0.80 * ((double)(r + 1) / speechRegions.Count));
+                            progress?.Report(p);
                         }
-
-                        currentOffset = segmentEnd;
-                        bytesReadTotal += bytesRead;
-
-                        double p = Math.Min(1.0, (double)bytesReadTotal / totalBytes);
-                        progress?.Report(p);
                     }
+                    else if (_vad != null && speechRegions.Count == 0)
+                    {
+                        _logger?.LogInformation("Silero VAD no detectó actividad de voz en el audio '{Path}'.", audioFilePath);
+                        progress?.Report(1.0);
+                    }
+                    else
+                    {
+                        // Fallback por ventanas de 20s si VAD no está presente
+                        using var waveReader = new WaveFileReader(tempWavPath);
+                        long totalBytes = waveReader.Length;
+                        if (totalBytes <= 0) totalBytes = 1;
+
+                        byte[] byteBuffer = new byte[16000 * 2 * 20];
+                        long bytesReadTotal = 0;
+                        TimeSpan currentOffset = TimeSpan.Zero;
+                        int bytesRead;
+
+                        while ((bytesRead = waveReader.Read(byteBuffer, 0, byteBuffer.Length)) > 0)
+                        {
+                            cancellationToken.ThrowIfCancellationRequested();
+
+                            int sampleCount = bytesRead / 2;
+                            float[] activeSamples = new float[sampleCount];
+                            for (int i = 0; i < sampleCount; i++)
+                            {
+                                short sample = BitConverter.ToInt16(byteBuffer, i * 2);
+                                activeSamples[i] = sample / 32768.0f;
+                            }
+
+                            float energy = 0f;
+                            for (int i = 0; i < activeSamples.Length; i++)
+                            {
+                                energy += activeSamples[i] * activeSamples[i];
+                            }
+                            energy = (float)Math.Sqrt(energy / activeSamples.Length);
+
+                            TimeSpan chunkDuration = TimeSpan.FromSeconds((double)sampleCount / 16000.0);
+                            TimeSpan segmentStart = currentOffset;
+                            TimeSpan segmentEnd = currentOffset + chunkDuration;
+
+                            if (energy > 0.001f)
+                            {
+                                using var stream = recognizer.CreateStream();
+                                if (stream.Handle != IntPtr.Zero)
+                                {
+                                    stream.AcceptWaveform(16000, activeSamples);
+                                    recognizer.Decode(stream);
+
+                                    string? text = null;
+                                    try
+                                    {
+                                        text = stream.Result?.Text?.Trim();
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        _logger?.LogWarning(ex, "Error al obtener texto del resultado de decodificación.");
+                                    }
+
+                                    if (!string.IsNullOrWhiteSpace(text))
+                                    {
+                                        var anomaly = AsrAnomalyDetector.DetectAnomaly(text, chunkDuration, officialVocabulary);
+                                        if (!anomaly.IsAnomalous)
+                                        {
+                                            segments.Add(new TranscriptSegment
+                                            {
+                                                StartTime = segmentStart,
+                                                EndTime = segmentEnd,
+                                                Text = text,
+                                                Confidence = 0.95f,
+                                                IsFinal = true
+                                            });
+                                        }
+                                    }
+                                }
+                            }
+
+                            currentOffset = segmentEnd;
+                            bytesReadTotal += bytesRead;
+
+                            double p = Math.Min(1.0, (double)bytesReadTotal / totalBytes);
+                            progress?.Report(p);
+                        }
+                    }
+                }
+                finally
+                {
+                    recognizerNoHotwords?.Dispose();
                 }
             }, cancellationToken);
         }
@@ -468,12 +559,20 @@ public class SherpaQwenTranscriptionService : ITranscriptionService
                 return null;
             }
 
+            TimeSpan duration = TimeSpan.FromSeconds((double)sampleCount / 16000.0);
+            var officialVocabulary = _vocabularyService?.GetOfficialWords() ?? Array.Empty<string>();
+            var anomaly = AsrAnomalyDetector.DetectAnomaly(detectedText, duration, officialVocabulary);
+            if (anomaly.IsAnomalous)
+            {
+                _logger?.LogWarning("Anomalía ASR detectada en chunk en vivo ({Reason}): '{Text}'. Descartado.", anomaly.Reason, detectedText);
+                return null;
+            }
+
             if (_vocabularyService != null)
             {
                 detectedText = _vocabularyService.ReplaceAliases(detectedText);
             }
 
-            TimeSpan duration = TimeSpan.FromSeconds((double)sampleCount / 16000.0);
             return new TranscriptSegment
             {
                 StartTime = offset,

@@ -92,6 +92,8 @@ public class OpenAiCompatibleActaService : IAiActaService, IAiActaProvider
         ActaGenerationOptions options,
         CancellationToken cancellationToken = default)
     {
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+
         // 1. Resolver configuración (de las opciones o del almacenamiento persistente)
         var settings = _userSettingsService?.LoadSettings();
 
@@ -141,7 +143,26 @@ public class OpenAiCompatibleActaService : IAiActaService, IAiActaProvider
 
         try
         {
-            // 3. Construir mensajes compatibles con OpenAI Chat Completions
+            // 3. Evaluar estrategia jerárquica para reuniones extensas
+            bool useHierarchical = TranscriptChunker.ShouldUseHierarchicalGeneration(meeting, options);
+            if (useHierarchical)
+            {
+                _logger?.LogInformation("Activando estrategia de generación jerárquica para reunión larga en servidor personalizado ({Model}, Duración: {Duration:hh\\:mm\\:ss}).",
+                    modelToUse, meeting.Duration);
+
+                return await HierarchicalActaGenerator.GenerateHierarchicalActaAsync(
+                    meeting,
+                    options,
+                    (payload, ct) => SendChatCompletionPayloadAsync(payload, endpoint, apiKey, ct),
+                    payloadBuilder: (mdl, msgs, maxToks, opts, isExtraction) => BuildPayload(mdl, msgs, maxToks, opts),
+                    vocabularyService: _vocabularyService,
+                    logger: _logger,
+                    cancellationToken: cancellationToken);
+            }
+
+            // 4. Generación directa adaptativa
+            options.Progress?.Report($"Conectando con Servidor personalizado ({modelToUse})...");
+
             var fullPrompt = BuildPrompt(meeting, options);
             var systemPrompt = ActaPromptBuilder.BuildSystemPrompt(options);
 
@@ -151,78 +172,110 @@ public class OpenAiCompatibleActaService : IAiActaService, IAiActaProvider
                 new { role = "user", content = fullPrompt }
             };
 
-            // Payload básico y universal OpenAI-compatible (sin reasoning ni parámetros propietarios)
-            var requestPayload = new
+            int estimatedPromptTokens = AiTokenBudgetManager.EstimateTokens(systemPrompt) + AiTokenBudgetManager.EstimateTokens(fullPrompt);
+            int effectiveMaxTokens = AiTokenBudgetManager.CalculateEffectiveMaxTokens(modelToUse, options, estimatedPromptTokens);
+            int contextWindow = AiTokenBudgetManager.GetModelContextWindow(modelToUse);
+
+            if (estimatedPromptTokens + 1000 > contextWindow)
             {
-                model = modelToUse,
-                messages,
-                max_tokens = 4000
-            };
-
-            var jsonContent = JsonSerializer.Serialize(requestPayload, JsonOptions);
-            var targetUrl = BuildChatCompletionsUrl(endpoint);
-
-            using var request = new HttpRequestMessage(HttpMethod.Post, targetUrl);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
-            request.Content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
-
-            _logger?.LogInformation("Enviando solicitud de generación de acta al servidor personalizado en '{Url}' con modelo '{Model}'...", targetUrl, modelToUse);
-
-            using var response = await _httpClient.SendAsync(request, cancellationToken);
-            var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                var errorDetail = ParseErrorMessage(responseBody, response.StatusCode);
-                _logger?.LogError("Error devuelto por el servidor personalizado ({StatusCode}): {ErrorDetail}", response.StatusCode, errorDetail);
+                _logger?.LogWarning("Prompt estimado ({PromptTokens}) excede la ventana de contexto del modelo ({ContextWindow}).",
+                    estimatedPromptTokens, contextWindow);
                 return new ActaGenerationResult
                 {
                     Success = false,
-                    ErrorMessage = errorDetail,
+                    ErrorMessage = $"El tamaño de la transcripción estimada ({estimatedPromptTokens:N0} tokens) excede la ventana de contexto admitida por el modelo ({contextWindow:N0} tokens). Active la opción de procesamiento jerárquico.",
                     ModelUsed = modelToUse
                 };
             }
 
-            // 4. Procesar respuesta exitosa según especificación OpenAI Chat Completions
-            using var doc = JsonDocument.Parse(responseBody);
-            var root = doc.RootElement;
+            var requestPayload = BuildPayload(modelToUse, messages, effectiveMaxTokens, options);
+            _logger?.LogInformation("Enviando solicitud directa a servidor personalizado '{Endpoint}' con modelo '{Model}', promptTokens={PromptTokens}, max_tokens={MaxTokens}...",
+                endpoint, modelToUse, estimatedPromptTokens, effectiveMaxTokens);
 
-            string? markdownContent = null;
-            if (root.TryGetProperty("choices", out var choices) && choices.GetArrayLength() > 0)
-            {
-                var firstChoice = choices[0];
-                markdownContent = ExtractContentFromChoice(firstChoice);
-            }
+            var chatResponse = await SendChatCompletionPayloadAsync(requestPayload, endpoint, apiKey, cancellationToken);
 
-            if (string.IsNullOrWhiteSpace(markdownContent))
+            if (!chatResponse.Success)
             {
                 return new ActaGenerationResult
                 {
                     Success = false,
-                    ErrorMessage = "Respuesta incompatible o vacía: el servidor personalizado no devolvió contenido en choices[0].message.content.",
-                    ModelUsed = modelToUse
+                    ErrorMessage = chatResponse.ErrorMessage,
+                    ModelUsed = modelToUse,
+                    PromptTokensUsed = chatResponse.PromptTokens,
+                    CompletionTokensUsed = chatResponse.CompletionTokens,
+                    MaxOutputTokensConfigured = effectiveMaxTokens,
+                    Duration = stopwatch.Elapsed,
+                    RequestId = chatResponse.RequestId
                 };
+            }
+
+            string markdownContent = chatResponse.Content ?? string.Empty;
+            bool wasRecovered = false;
+
+            // Manejo de truncamiento por límite de salida en generación directa
+            if (chatResponse.IsTruncated)
+            {
+                _logger?.LogWarning("La respuesta directa del servidor personalizado terminó por límite de tokens (finish_reason=length). Intentando continuación controlada...");
+                options.Progress?.Report("El servidor alcanzó el límite de salida. Recuperando continuación de las secciones pendientes...");
+
+                var contPrompt = ActaPromptBuilder.BuildContinuationPrompt(markdownContent, meeting, options);
+                var contMessages = new[]
+                {
+                    new { role = "system", content = systemPrompt },
+                    new { role = "user", content = fullPrompt },
+                    new { role = "assistant", content = markdownContent },
+                    new { role = "user", content = contPrompt }
+                };
+
+                int contMaxTokens = Math.Min(4000, effectiveMaxTokens);
+                var contPayload = BuildPayload(modelToUse, contMessages, contMaxTokens, options);
+                var contResponse = await SendChatCompletionPayloadAsync(contPayload, endpoint, apiKey, cancellationToken);
+
+                if (contResponse.Success && !contResponse.IsTruncated && !string.IsNullOrWhiteSpace(contResponse.Content))
+                {
+                    markdownContent = markdownContent.TrimEnd() + "\n\n" + contResponse.Content.TrimStart();
+                    chatResponse.PromptTokens = (chatResponse.PromptTokens ?? 0) + (contResponse.PromptTokens ?? 0);
+                    chatResponse.CompletionTokens = (chatResponse.CompletionTokens ?? 0) + (contResponse.CompletionTokens ?? 0);
+                    chatResponse.FinishReason = contResponse.FinishReason ?? "stop";
+                    wasRecovered = true;
+                    _logger?.LogInformation("Continuación en servidor personalizado completada con éxito.");
+                }
+                else
+                {
+                    _logger?.LogWarning("No se pudo completar la continuación en servidor personalizado: {Error}", contResponse.ErrorMessage);
+                    return new ActaGenerationResult
+                    {
+                        Success = false,
+                        IsTruncated = true,
+                        PartialMarkdownContent = markdownContent,
+                        ErrorMessage = "[Incompleta] El servidor personalizado alcanzó su límite de tokens de generación (finish_reason=length) y no fue posible completar el documento. Se conservó el borrador parcial generado.",
+                        ModelUsed = modelToUse,
+                        PromptTokensUsed = chatResponse.PromptTokens,
+                        CompletionTokensUsed = chatResponse.CompletionTokens,
+                        MaxOutputTokensConfigured = effectiveMaxTokens,
+                        FinishReason = "length",
+                        Duration = stopwatch.Elapsed
+                    };
+                }
             }
 
             markdownContent = ActaPromptBuilder.SanitizeActaMarkdown(markdownContent, meeting, options);
 
-            int? promptTokens = null;
-            int? completionTokens = null;
-            if (root.TryGetProperty("usage", out var usage))
-            {
-                if (usage.TryGetProperty("prompt_tokens", out var pt) && pt.TryGetInt32(out var ptVal)) promptTokens = ptVal;
-                if (usage.TryGetProperty("completion_tokens", out var ct) && ct.TryGetInt32(out var ctVal)) completionTokens = ctVal;
-            }
-
-            _logger?.LogInformation("Acta generada con éxito con Servidor personalizado. Tokens: prompt={PromptTokens}, completion={CompletionTokens}.", promptTokens, completionTokens);
+            _logger?.LogInformation("Acta generada con éxito con Servidor personalizado. Tokens: prompt={PromptTokens}, completion={CompletionTokens}, finish_reason={FinishReason}, recovered={WasRecovered}.",
+                chatResponse.PromptTokens, chatResponse.CompletionTokens, chatResponse.FinishReason, wasRecovered);
 
             return new ActaGenerationResult
             {
                 Success = true,
                 MarkdownContent = markdownContent,
                 ModelUsed = modelToUse,
-                PromptTokensUsed = promptTokens,
-                CompletionTokensUsed = completionTokens
+                PromptTokensUsed = chatResponse.PromptTokens,
+                CompletionTokensUsed = chatResponse.CompletionTokens,
+                MaxOutputTokensConfigured = effectiveMaxTokens,
+                Duration = stopwatch.Elapsed,
+                FinishReason = chatResponse.FinishReason ?? "stop",
+                WasRecovered = wasRecovered,
+                RequestId = chatResponse.RequestId
             };
         }
         catch (JsonException ex)
@@ -275,6 +328,132 @@ public class OpenAiCompatibleActaService : IAiActaService, IAiActaProvider
                 ModelUsed = modelToUse
             };
         }
+    }
+
+    /// <summary>
+    /// Construye el payload universal OpenAI-compatible respetando los límites de tokens sin parámetros propietarios de razonamiento.
+    /// </summary>
+    public static object BuildPayload(
+        string model,
+        object messages,
+        int maxTokens,
+        ActaGenerationOptions options)
+    {
+        return new
+        {
+            model,
+            messages,
+            max_tokens = maxTokens
+        };
+    }
+
+    /// <summary>
+    /// Envía una solicitud a la API de Chat Completions compatible con OpenAI, parseando
+    /// estructuradamente finish_reason, content, uso de tokens y gestionando límites de servidor.
+    /// </summary>
+    public async Task<AiChatResponse> SendChatCompletionPayloadAsync(
+        object payload,
+        string endpoint,
+        string apiKey,
+        CancellationToken cancellationToken)
+    {
+        var targetUrl = BuildChatCompletionsUrl(endpoint);
+        var jsonContent = JsonSerializer.Serialize(payload, JsonOptions);
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, targetUrl);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+        request.Content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
+
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var errorDetail = ParseErrorMessage(responseBody, response.StatusCode);
+            _logger?.LogError("Error devuelto por el servidor personalizado ({StatusCode}): {ErrorDetail}", response.StatusCode, errorDetail);
+            return new AiChatResponse
+            {
+                Success = false,
+                StatusCode = (int)response.StatusCode,
+                ErrorMessage = errorDetail
+            };
+        }
+
+        using var doc = JsonDocument.Parse(responseBody);
+        var root = doc.RootElement;
+
+        string? requestId = null;
+        if (root.TryGetProperty("id", out var idElem) && idElem.ValueKind == JsonValueKind.String)
+        {
+            requestId = idElem.GetString();
+        }
+
+        string? modelUsed = null;
+        if (root.TryGetProperty("model", out var modelElem) && modelElem.ValueKind == JsonValueKind.String)
+        {
+            modelUsed = modelElem.GetString();
+        }
+
+        string? markdownContent = null;
+        string? finishReason = null;
+        string? refusal = null;
+
+        if (root.TryGetProperty("choices", out var choices) && choices.ValueKind == JsonValueKind.Array && choices.GetArrayLength() > 0)
+        {
+            var firstChoice = choices[0];
+
+            if (firstChoice.TryGetProperty("finish_reason", out var frElem) && frElem.ValueKind == JsonValueKind.String)
+            {
+                finishReason = frElem.GetString();
+            }
+
+            markdownContent = ExtractContentFromChoice(firstChoice);
+
+            if (firstChoice.TryGetProperty("message", out var msgObj))
+            {
+                if (msgObj.TryGetProperty("refusal", out var refElem) && refElem.ValueKind == JsonValueKind.String)
+                {
+                    refusal = refElem.GetString();
+                }
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(markdownContent))
+        {
+            return new AiChatResponse
+            {
+                Success = false,
+                StatusCode = (int)response.StatusCode,
+                ErrorMessage = "Respuesta incompatible o vacía: el servidor personalizado no devolvió contenido en choices[0].message.content.",
+                FinishReason = finishReason,
+                ModelUsed = modelUsed,
+                RequestId = requestId
+            };
+        }
+
+        int? promptTokens = null;
+        int? completionTokens = null;
+        int? totalTokens = null;
+
+        if (root.TryGetProperty("usage", out var usage))
+        {
+            if (usage.TryGetProperty("prompt_tokens", out var pt) && pt.TryGetInt32(out var ptVal)) promptTokens = ptVal;
+            if (usage.TryGetProperty("completion_tokens", out var ct) && ct.TryGetInt32(out var ctVal)) completionTokens = ctVal;
+            if (usage.TryGetProperty("total_tokens", out var tt) && tt.TryGetInt32(out var ttVal)) totalTokens = ttVal;
+        }
+
+        return new AiChatResponse
+        {
+            Success = true,
+            Content = markdownContent,
+            FinishReason = finishReason ?? "stop",
+            PromptTokens = promptTokens,
+            CompletionTokens = completionTokens,
+            TotalTokens = totalTokens ?? ((promptTokens ?? 0) + (completionTokens ?? 0)),
+            ModelUsed = modelUsed,
+            RequestId = requestId,
+            Refusal = refusal
+        };
     }
 
     public Task<ConnectionTestResult> TestConnectionAsync(CancellationToken cancellationToken = default)

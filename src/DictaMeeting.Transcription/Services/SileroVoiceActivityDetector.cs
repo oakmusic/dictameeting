@@ -505,8 +505,14 @@ public class SileroVoiceActivityDetector : IVoiceActivityDetector
 
             using var waveReader = new WaveFileReader(tempWav);
             byte[] buffer = new byte[waveReader.Length];
-            int bytesRead = waveReader.Read(buffer, 0, buffer.Length);
-            int sampleCount = bytesRead / 2;
+            int totalBytesRead = 0;
+            while (totalBytesRead < buffer.Length)
+            {
+                int read = waveReader.Read(buffer, totalBytesRead, buffer.Length - totalBytesRead);
+                if (read <= 0) break;
+                totalBytesRead += read;
+            }
+            int sampleCount = totalBytesRead / 2;
             float[] samples = new float[sampleCount];
             for (int i = 0; i < sampleCount; i++)
             {

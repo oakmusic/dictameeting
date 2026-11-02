@@ -19,13 +19,16 @@ public static class HierarchicalActaGenerator
     public static async Task<ActaGenerationResult> GenerateHierarchicalActaAsync(
         Meeting meeting,
         ActaGenerationOptions options,
-        Func<object, CancellationToken, Task<OpenRouterChatResponse>> sendChatFunc,
+        Func<object, CancellationToken, Task<AiChatResponse>> sendChatFunc,
+        Func<string, object, int, ActaGenerationOptions, bool, object>? payloadBuilder = null,
         IVocabularyService? vocabularyService = null,
         ILogger? logger = null,
         CancellationToken cancellationToken = default)
     {
         var stopwatch = Stopwatch.StartNew();
-        var modelToUse = string.IsNullOrWhiteSpace(options.ModelName) ? OpenRouterActaService.DefaultModel : options.ModelName.Trim();
+        var modelToUse = !string.IsNullOrWhiteSpace(options.CustomModelName)
+            ? options.CustomModelName.Trim()
+            : (string.IsNullOrWhiteSpace(options.ModelName) ? OpenRouterActaService.DefaultModel : options.ModelName.Trim());
 
         // Etapa 1: Segmentación de la transcripción
         options.Progress?.Report("Analizando la transcripción y preparando fragmentos...");
@@ -67,7 +70,9 @@ public static class HierarchicalActaGenerator
 
             // Para la extracción de fragmentos se utiliza un presupuesto enfocado
             int chunkOutputTokens = 4000;
-            object chunkPayload = BuildPayload(modelToUse, messages, chunkOutputTokens, options, isExtractionStage: true);
+            object chunkPayload = payloadBuilder != null
+                ? payloadBuilder(modelToUse, messages, chunkOutputTokens, options, true)
+                : BuildPayload(modelToUse, messages, chunkOutputTokens, options, isExtractionStage: true);
 
             var chunkResponse = await ExecuteWithRetryAsync(
                 sendChatFunc,
@@ -113,7 +118,9 @@ public static class HierarchicalActaGenerator
             };
 
             int synthOutputTokens = 6000;
-            object synthPayload = BuildPayload(modelToUse, synthMessages, synthOutputTokens, options, isExtractionStage: false);
+            object synthPayload = payloadBuilder != null
+                ? payloadBuilder(modelToUse, synthMessages, synthOutputTokens, options, false)
+                : BuildPayload(modelToUse, synthMessages, synthOutputTokens, options, isExtractionStage: false);
 
             var synthResponse = await ExecuteWithRetryAsync(
                 sendChatFunc,
@@ -159,8 +166,10 @@ public static class HierarchicalActaGenerator
             new { role = "user", content = finalDraftPrompt }
         };
 
-        int finalMaxTokens = OpenRouterActaService.CalculateEffectiveMaxTokens(modelToUse, options, estimatedPromptTokens: 3000);
-        object finalDraftPayload = BuildPayload(modelToUse, finalMessages, finalMaxTokens, options, isExtractionStage: false);
+        int finalMaxTokens = AiTokenBudgetManager.CalculateEffectiveMaxTokens(modelToUse, options, estimatedPromptTokens: 3000);
+        object finalDraftPayload = payloadBuilder != null
+            ? payloadBuilder(modelToUse, finalMessages, finalMaxTokens, options, false)
+            : BuildPayload(modelToUse, finalMessages, finalMaxTokens, options, isExtractionStage: false);
 
         var finalDraftResponse = await ExecuteWithRetryAsync(
             sendChatFunc,
@@ -204,7 +213,9 @@ public static class HierarchicalActaGenerator
                 new { role = "user", content = contPrompt }
             };
 
-            object contPayload = BuildPayload(modelToUse, contMessages, 4000, options, isExtractionStage: false);
+            object contPayload = payloadBuilder != null
+                ? payloadBuilder(modelToUse, contMessages, 4000, options, false)
+                : BuildPayload(modelToUse, contMessages, 4000, options, isExtractionStage: false);
             var contResponse = await ExecuteWithRetryAsync(
                 sendChatFunc,
                 contPayload,
@@ -301,8 +312,8 @@ public static class HierarchicalActaGenerator
         };
     }
 
-    private static async Task<OpenRouterChatResponse> ExecuteWithRetryAsync(
-        Func<object, CancellationToken, Task<OpenRouterChatResponse>> sendChatFunc,
+    private static async Task<AiChatResponse> ExecuteWithRetryAsync(
+        Func<object, CancellationToken, Task<AiChatResponse>> sendChatFunc,
         object payload,
         int maxRetries,
         ILogger? logger,
@@ -310,7 +321,7 @@ public static class HierarchicalActaGenerator
         CancellationToken cancellationToken)
     {
         int attempt = 0;
-        OpenRouterChatResponse lastResponse = new() { Success = false, ErrorMessage = "No ejecutado." };
+        AiChatResponse lastResponse = new() { Success = false, ErrorMessage = "No ejecutado." };
 
         while (attempt <= maxRetries)
         {
@@ -345,7 +356,7 @@ public static class HierarchicalActaGenerator
             }
             catch (Exception ex)
             {
-                lastResponse = new OpenRouterChatResponse
+                lastResponse = new AiChatResponse
                 {
                     Success = false,
                     ErrorMessage = $"Error en {stageName}: {ex.Message}"

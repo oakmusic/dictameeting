@@ -27,6 +27,9 @@ public partial class SpeakerViewModel : ObservableObject
     [ObservableProperty]
     private string _speakingTimeFormatted = "00:00";
 
+    [ObservableProperty]
+    private bool _isSelected;
+
     private ObservableCollection<string> _availableRealParticipants = new();
 
     public ObservableCollection<string> AvailableOptions { get; } = new();
