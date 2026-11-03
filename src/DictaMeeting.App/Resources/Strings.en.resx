@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <root>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
@@ -1678,5 +1678,119 @@ Do you want to change location anyway?</value>
   </data>
   <data name="Msg_Audio_Device_Notice_Title" xml:space="preserve">
     <value>Audio Device Notice</value>
+  </data>
+  <data name="AudioSettings_EnableDiarization" xml:space="preserve">
+    <value>Run diarization when transcribing</value>
+  </data>
+  <data name="AudioSettings_EnableDiarization_Desc" xml:space="preserve">
+    <value>You can also run it later</value>
+  </data>
+  <data name="Import_Audio_ProcessingType" xml:space="preserve">
+    <value>Processing type</value>
+  </data>
+  <data name="Import_Audio_TranscriptionOnly" xml:space="preserve">
+    <value>Transcription only</value>
+  </data>
+  <data name="Import_Audio_TranscriptionAndDiarization" xml:space="preserve">
+    <value>Transcription + diarization</value>
+  </data>
+  <data name="Reprocess_Modal_Title" xml:space="preserve">
+    <value>Reprocess Audio</value>
+  </data>
+  <data name="Reprocess_Modal_Desc" xml:space="preserve">
+    <value>Reprocess the meeting's recorded audio to improve transcription or update speaker assignments.</value>
+  </data>
+  <data name="Reprocess_ProcessingType_Label" xml:space="preserve">
+    <value>Processing type</value>
+  </data>
+  <data name="Reprocess_Mode_Both" xml:space="preserve">
+    <value>Transcription + diarization</value>
+  </data>
+  <data name="Reprocess_Mode_Both_Desc" xml:space="preserve">
+    <value>Transcribe the audio again and assign speakers using diarization.</value>
+  </data>
+  <data name="Reprocess_Mode_TranscriptionOnly" xml:space="preserve">
+    <value>Transcription only</value>
+  </data>
+  <data name="Reprocess_Mode_TranscriptionOnly_Desc" xml:space="preserve">
+    <value>Transcribe the audio using the selected model without running diarization.</value>
+  </data>
+  <data name="Reprocess_Mode_DiarizationOnly" xml:space="preserve">
+    <value>Diarization only</value>
+  </data>
+  <data name="Reprocess_Mode_DiarizationOnly_Desc" xml:space="preserve">
+    <value>Run diarization over the existing transcript without repeating speech recognition.</value>
+  </data>
+  <data name="Reprocess_Model_Label" xml:space="preserve">
+    <value>Transcription model</value>
+  </data>
+  <data name="Reprocess_Start_Button" xml:space="preserve">
+    <value>Start processing</value>
+  </data>
+  <data name="History_Delete_Meeting_Tooltip" xml:space="preserve">
+    <value>Delete meeting</value>
+  </data>
+  <data name="DeleteMeeting_Modal_Title" xml:space="preserve">
+    <value>Delete meeting</value>
+  </data>
+  <data name="DeleteMeeting_Modal_Prompt" xml:space="preserve">
+    <value>Are you sure you want to delete this meeting?</value>
+  </data>
+  <data name="DeleteMeeting_Modal_Warning" xml:space="preserve">
+    <value>All associated data, including recorded audio, transcript, diarization, participants, and all minutes versions will be permanently deleted.&#10;&#10;This action cannot be undone.</value>
+  </data>
+  <data name="DeleteMeeting_Modal_Button" xml:space="preserve">
+    <value>Delete meeting</value>
+  </data>
+  <data name="DeleteMeeting_Deleting_Status" xml:space="preserve">
+    <value>Deleting meeting...</value>
+  </data>
+  <data name="DeleteMeeting_Error_ActiveRecording" xml:space="preserve">
+    <value>Cannot delete meeting while recording is active.</value>
+  </data>
+  <data name="DeleteMeeting_Error_Processing" xml:space="preserve">
+    <value>Cannot delete meeting while it is being processed in the background.</value>
+  </data>
+  <data name="DeleteMeeting_Error_Failed" xml:space="preserve">
+    <value>An error occurred while deleting the meeting</value>
+  </data>
+  <data name="DeleteMeeting_Success_Status" xml:space="preserve">
+    <value>Meeting '{0}' successfully deleted.</value>
+  </data>
+  <data name="Acta_History_Delete_Version_Tooltip" xml:space="preserve">
+    <value>Delete version</value>
+  </data>
+  <data name="DeleteActaVersion_Modal_Title" xml:space="preserve">
+    <value>Delete minutes version</value>
+  </data>
+  <data name="DeleteActaVersion_Modal_Prompt" xml:space="preserve">
+    <value>Are you sure you want to delete this minutes version?</value>
+  </data>
+  <data name="DeleteActaVersion_Modal_Warning" xml:space="preserve">
+    <value>This minutes version will be permanently deleted, but the meeting, its transcript, and all other versions will be preserved.&#10;&#10;This action cannot be undone.</value>
+  </data>
+  <data name="DeleteActaVersion_Modal_Button" xml:space="preserve">
+    <value>Delete version</value>
+  </data>
+  <data name="DeleteActaVersion_Language_Label" xml:space="preserve">
+    <value>Language:</value>
+  </data>
+  <data name="DeleteActaVersion_Detail_Label" xml:space="preserve">
+    <value>Detail level:</value>
+  </data>
+  <data name="DeleteActaVersion_Date_Label" xml:space="preserve">
+    <value>Date and time:</value>
+  </data>
+  <data name="DeleteActaVersion_Model_Label" xml:space="preserve">
+    <value>AI Model:</value>
+  </data>
+  <data name="DeleteActaVersion_Deleting_Status" xml:space="preserve">
+    <value>Deleting version...</value>
+  </data>
+  <data name="DeleteActaVersion_Error_Failed" xml:space="preserve">
+    <value>An error occurred while deleting the minutes version</value>
+  </data>
+  <data name="DeleteActaVersion_Success_Status" xml:space="preserve">
+    <value>Minutes version successfully deleted.</value>
   </data>
 </root>

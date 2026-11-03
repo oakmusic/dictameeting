@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <root>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
@@ -1678,5 +1678,119 @@
   </data>
   <data name="Msg_Audio_Device_Notice_Title" xml:space="preserve">
     <value>Aviso de Dispositivo de Audio</value>
+  </data>
+  <data name="AudioSettings_EnableDiarization" xml:space="preserve">
+    <value>Ejecutar diarización al transcribir</value>
+  </data>
+  <data name="AudioSettings_EnableDiarization_Desc" xml:space="preserve">
+    <value>También puedes hacerla más tarde</value>
+  </data>
+  <data name="Import_Audio_ProcessingType" xml:space="preserve">
+    <value>Tipo de procesamiento</value>
+  </data>
+  <data name="Import_Audio_TranscriptionOnly" xml:space="preserve">
+    <value>Solo transcripción</value>
+  </data>
+  <data name="Import_Audio_TranscriptionAndDiarization" xml:space="preserve">
+    <value>Transcripción + diarización</value>
+  </data>
+  <data name="Reprocess_Modal_Title" xml:space="preserve">
+    <value>Reprocesar Audio</value>
+  </data>
+  <data name="Reprocess_Modal_Desc" xml:space="preserve">
+    <value>Vuelve a procesar el audio grabado de la reunión para mejorar la transcripción o actualizar los interlocutores.</value>
+  </data>
+  <data name="Reprocess_ProcessingType_Label" xml:space="preserve">
+    <value>Tipo de procesamiento</value>
+  </data>
+  <data name="Reprocess_Mode_Both" xml:space="preserve">
+    <value>Transcripción + diarización</value>
+  </data>
+  <data name="Reprocess_Mode_Both_Desc" xml:space="preserve">
+    <value>Transcribe el audio de nuevo y asigna los interlocutores mediante diarización.</value>
+  </data>
+  <data name="Reprocess_Mode_TranscriptionOnly" xml:space="preserve">
+    <value>Solo transcripción</value>
+  </data>
+  <data name="Reprocess_Mode_TranscriptionOnly_Desc" xml:space="preserve">
+    <value>Transcribe el audio con el modelo seleccionado sin ejecutar diarización.</value>
+  </data>
+  <data name="Reprocess_Mode_DiarizationOnly" xml:space="preserve">
+    <value>Solo diarización</value>
+  </data>
+  <data name="Reprocess_Mode_DiarizationOnly_Desc" xml:space="preserve">
+    <value>Ejecuta la diarización sobre la transcripción actual sin repetir el reconocimiento de voz.</value>
+  </data>
+  <data name="Reprocess_Model_Label" xml:space="preserve">
+    <value>Modelo de transcripción</value>
+  </data>
+  <data name="Reprocess_Start_Button" xml:space="preserve">
+    <value>Iniciar procesamiento</value>
+  </data>
+  <data name="History_Delete_Meeting_Tooltip" xml:space="preserve">
+    <value>Eliminar reunión</value>
+  </data>
+  <data name="DeleteMeeting_Modal_Title" xml:space="preserve">
+    <value>Eliminar reunión</value>
+  </data>
+  <data name="DeleteMeeting_Modal_Prompt" xml:space="preserve">
+    <value>¿Estás seguro de que quieres eliminar esta reunión?</value>
+  </data>
+  <data name="DeleteMeeting_Modal_Warning" xml:space="preserve">
+    <value>Se eliminarán permanentemente todos sus datos, incluidos el audio grabado, la transcripción, la diarización, los participantes y todas las versiones de las actas.&#10;&#10;Esta acción no se puede deshacer.</value>
+  </data>
+  <data name="DeleteMeeting_Modal_Button" xml:space="preserve">
+    <value>Eliminar reunión</value>
+  </data>
+  <data name="DeleteMeeting_Deleting_Status" xml:space="preserve">
+    <value>Eliminando reunión...</value>
+  </data>
+  <data name="DeleteMeeting_Error_ActiveRecording" xml:space="preserve">
+    <value>No se puede eliminar la reunión mientras está en grabación activa.</value>
+  </data>
+  <data name="DeleteMeeting_Error_Processing" xml:space="preserve">
+    <value>No se puede eliminar la reunión mientras se está procesando en segundo plano.</value>
+  </data>
+  <data name="DeleteMeeting_Error_Failed" xml:space="preserve">
+    <value>Ocurrió un error al eliminar la reunión</value>
+  </data>
+  <data name="DeleteMeeting_Success_Status" xml:space="preserve">
+    <value>Reunión '{0}' eliminada correctamente.</value>
+  </data>
+  <data name="Acta_History_Delete_Version_Tooltip" xml:space="preserve">
+    <value>Eliminar versión</value>
+  </data>
+  <data name="DeleteActaVersion_Modal_Title" xml:space="preserve">
+    <value>Eliminar versión del acta</value>
+  </data>
+  <data name="DeleteActaVersion_Modal_Prompt" xml:space="preserve">
+    <value>¿Quieres eliminar esta versión del acta?</value>
+  </data>
+  <data name="DeleteActaVersion_Modal_Warning" xml:space="preserve">
+    <value>Se eliminará permanentemente esta versión, pero la reunión, su transcripción y el resto de las versiones del acta se conservarán.&#10;&#10;Esta acción no se puede deshacer.</value>
+  </data>
+  <data name="DeleteActaVersion_Modal_Button" xml:space="preserve">
+    <value>Eliminar versión</value>
+  </data>
+  <data name="DeleteActaVersion_Language_Label" xml:space="preserve">
+    <value>Idioma:</value>
+  </data>
+  <data name="DeleteActaVersion_Detail_Label" xml:space="preserve">
+    <value>Nivel de detalle:</value>
+  </data>
+  <data name="DeleteActaVersion_Date_Label" xml:space="preserve">
+    <value>Fecha y hora:</value>
+  </data>
+  <data name="DeleteActaVersion_Model_Label" xml:space="preserve">
+    <value>Modelo IA:</value>
+  </data>
+  <data name="DeleteActaVersion_Deleting_Status" xml:space="preserve">
+    <value>Eliminando versión...</value>
+  </data>
+  <data name="DeleteActaVersion_Error_Failed" xml:space="preserve">
+    <value>Ocurrió un error al eliminar la versión del acta</value>
+  </data>
+  <data name="DeleteActaVersion_Success_Status" xml:space="preserve">
+    <value>Versión del acta eliminada correctamente.</value>
   </data>
 </root>

@@ -26,6 +26,7 @@ public static class AhcClusterer
     /// <summary>
     /// Ejecuta el clustering aglomerativo por centroide con corte por umbral de distancia.
     /// Retorna un array con el ID de cluster (0 a K-1) asignado a cada vector de entrada.
+    /// Optimizado a O(N^2) mediante matriz simétrica de distancias y seguimiento de vecinos más próximos.
     /// </summary>
     /// <param name="normalizedEmbeddings">Array de N vectores normalizados L2 (e.g. 256 dimensiones).</param>
     /// <param name="threshold">Umbral de distancia Euclidiana de corte (por defecto 0.6 en Community-1).</param>
@@ -36,72 +37,160 @@ public static class AhcClusterer
         if (n == 1) return new[] { 0 };
 
         int dim = normalizedEmbeddings[0].Length;
-        var activeClusters = new List<AhcCluster>(n);
+        double thresholdSq = threshold * threshold;
+
+        // Representación compacta de clusters activos
+        int[] counts = new int[n];
+        double[][] centroids = new double[n][];
+        List<int>[] members = new List<int>[n];
+        bool[] isActive = new bool[n];
 
         for (int i = 0; i < n; i++)
         {
-            activeClusters.Add(new AhcCluster(i, normalizedEmbeddings[i], i));
+            counts[i] = 1;
+            centroids[i] = (double[])normalizedEmbeddings[i].Clone();
+            members[i] = new List<int> { i };
+            isActive[i] = true;
         }
 
-        while (activeClusters.Count > 1)
-        {
-            double minDistanceSq = double.MaxValue;
-            int bestI = -1;
-            int bestJ = -1;
+        // Matriz simétrica de distancias al cuadrado D[i, j]
+        double[,] distSq = new double[n, n];
+        int[] nearest = new int[n];
+        double[] nearestDistSq = new double[n];
 
-            for (int i = 0; i < activeClusters.Count; i++)
+        for (int i = 0; i < n; i++)
+        {
+            double bestD = double.MaxValue;
+            int bestJ = -1;
+            for (int j = 0; j < n; j++)
             {
-                var cI = activeClusters[i];
-                for (int j = i + 1; j < activeClusters.Count; j++)
+                if (i == j)
                 {
-                    var cJ = activeClusters[j];
-                    double distSq = EuclideanDistanceSquared(cI.Centroid, cJ.Centroid);
-                    if (distSq < minDistanceSq)
-                    {
-                        minDistanceSq = distSq;
-                        bestI = i;
-                        bestJ = j;
-                    }
+                    distSq[i, j] = double.MaxValue;
+                    continue;
+                }
+                if (j > i)
+                {
+                    double d = EuclideanDistanceSquared(centroids[i], centroids[j]);
+                    distSq[i, j] = d;
+                    distSq[j, i] = d;
+                }
+                double curD = distSq[i, j];
+                if (curD < bestD)
+                {
+                    bestD = curD;
+                    bestJ = j;
+                }
+            }
+            nearest[i] = bestJ;
+            nearestDistSq[i] = bestD;
+        }
+
+        int activeCount = n;
+
+        while (activeCount > 1)
+        {
+            // Encontrar el par activo con menor distancia en O(N)
+            double globalMinDistSq = double.MaxValue;
+            int bestI = -1;
+
+            for (int i = 0; i < n; i++)
+            {
+                if (!isActive[i]) continue;
+                if (nearestDistSq[i] < globalMinDistSq)
+                {
+                    globalMinDistSq = nearestDistSq[i];
+                    bestI = i;
                 }
             }
 
-            double minDistance = Math.Sqrt(minDistanceSq);
-            if (minDistance > threshold)
+            if (bestI < 0 || globalMinDistSq > thresholdSq)
             {
                 // Ningún par está a una distancia menor o igual al umbral
                 break;
             }
 
-            // Fusionar bestI y bestJ
-            var clusterA = activeClusters[bestI];
-            var clusterB = activeClusters[bestJ];
+            int bestJ = nearest[bestI];
+            if (bestJ < 0 || !isActive[bestJ])
+            {
+                RecalculateNearest(bestI, n, isActive, distSq, nearest, nearestDistSq);
+                continue;
+            }
 
-            int newCount = clusterA.Count + clusterB.Count;
-            double[] newCentroid = new double[dim];
+            int iIdx = Math.Min(bestI, bestJ);
+            int jIdx = Math.Max(bestI, bestJ);
+
+            // Fusionar jIdx en iIdx
+            int countI = counts[iIdx];
+            int countJ = counts[jIdx];
+            int newCount = countI + countJ;
+            var centroidI = centroids[iIdx];
+            var centroidJ = centroids[jIdx];
 
             for (int d = 0; d < dim; d++)
             {
-                newCentroid[d] = (clusterA.Centroid[d] * clusterA.Count + clusterB.Centroid[d] * clusterB.Count) / newCount;
+                centroidI[d] = (centroidI[d] * countI + centroidJ[d] * countJ) / newCount;
+            }
+            counts[iIdx] = newCount;
+            members[iIdx].AddRange(members[jIdx]);
+
+            // Desactivar jIdx
+            isActive[jIdx] = false;
+            activeCount--;
+
+            // Actualizar distancias entre iIdx y todos los clusters activos k en O(N)
+            for (int k = 0; k < n; k++)
+            {
+                if (!isActive[k] || k == iIdx) continue;
+
+                double d = EuclideanDistanceSquared(centroidI, centroids[k]);
+                distSq[iIdx, k] = d;
+                distSq[k, iIdx] = d;
+
+                if (nearest[k] == jIdx || nearest[k] == iIdx || d < nearestDistSq[k])
+                {
+                    RecalculateNearest(k, n, isActive, distSq, nearest, nearestDistSq);
+                }
             }
 
-            clusterA.Centroid = newCentroid;
-            clusterA.Count = newCount;
-            clusterA.MemberIndices.AddRange(clusterB.MemberIndices);
-
-            activeClusters.RemoveAt(bestJ);
+            // Recalcular nearest para iIdx
+            RecalculateNearest(iIdx, n, isActive, distSq, nearest, nearestDistSq);
         }
 
         // Asignar IDs contiguos 0..K-1
         int[] result = new int[n];
-        for (int k = 0; k < activeClusters.Count; k++)
+        int clusterId = 0;
+        for (int i = 0; i < n; i++)
         {
-            foreach (int memberIdx in activeClusters[k].MemberIndices)
+            if (isActive[i])
             {
-                result[memberIdx] = k;
+                foreach (int memberIdx in members[i])
+                {
+                    result[memberIdx] = clusterId;
+                }
+                clusterId++;
             }
         }
 
         return result;
+    }
+
+    private static void RecalculateNearest(int i, int n, bool[] isActive, double[,] distSq, int[] nearest, double[] nearestDistSq)
+    {
+        double bestD = double.MaxValue;
+        int bestJ = -1;
+        for (int j = 0; j < n; j++)
+        {
+            if (i == j || !isActive[j]) continue;
+            double d = distSq[i, j];
+            if (d < bestD)
+            {
+                bestD = d;
+                bestJ = j;
+            }
+        }
+        nearest[i] = bestJ;
+        nearestDistSq[i] = bestD;
     }
 
     private static double EuclideanDistanceSquared(double[] a, double[] b)

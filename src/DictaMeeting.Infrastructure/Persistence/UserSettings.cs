@@ -19,6 +19,9 @@ public class UserSettings
     public string? UiLanguage { get; set; }
     public bool IsDarkMode { get; set; } = false;
 
+    // Preferencias de procesamiento (diarización por defecto al transcribir)
+    public bool EnableDiarizationOnTranscription { get; set; } = true;
+
     // Configuración de Servidor Personalizado de IA (OpenAI-compatible)
     public string? CustomAiEndpoint { get; set; }
     public string? CustomAiModel { get; set; }

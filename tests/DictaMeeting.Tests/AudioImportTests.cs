@@ -139,10 +139,17 @@ public class AudioImportTests : IDisposable
         public event EventHandler<MeetingProcessingProgressEventArgs>? ProgressChanged;
         public event EventHandler<MeetingProcessingCompletedEventArgs>? ProcessingCompleted;
 
-        public Task EnqueueOrProcessAsync(string meetingId, string? targetModel = null, CancellationToken cancellationToken = default)
+        public ProcessingMode? LastProcessingMode { get; set; }
+
+        public Task EnqueueOrProcessAsync(
+            string meetingId,
+            string? targetModel = null,
+            ProcessingMode mode = ProcessingMode.TranscriptionAndDiarization,
+            CancellationToken cancellationToken = default)
         {
             IsProcessing = true;
             CurrentMeetingId = meetingId;
+            LastProcessingMode = mode;
             return Task.CompletedTask;
         }
 

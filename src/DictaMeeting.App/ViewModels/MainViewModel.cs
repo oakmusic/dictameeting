@@ -300,6 +300,9 @@ public partial class MainViewModel : ObservableObject
     private bool _isDownloadingModel;
 
     [ObservableProperty]
+    private bool _enableDiarizationOnTranscription = true;
+
+    [ObservableProperty]
     private double _modelDownloadProgress;
 
     [ObservableProperty]
@@ -580,6 +583,7 @@ public partial class MainViewModel : ObservableObject
                 SelectedLanguage = SelectedLanguage?.Mode.ToString(),
                 UiLanguage = UiLanguage,
                 IsDarkMode = IsDarkMode,
+                EnableDiarizationOnTranscription = EnableDiarizationOnTranscription,
                 CustomAiEndpoint = CustomAiEndpoint,
                 CustomAiModel = CustomAiModel,
                 SelectedAiModelId = SelectedAiModel?.Id,
@@ -595,6 +599,11 @@ public partial class MainViewModel : ObservableObject
         {
             _logger?.LogWarning(ex, "Error al guardar preferencias de usuario.");
         }
+    }
+
+    partial void OnEnableDiarizationOnTranscriptionChanged(bool value)
+    {
+        SaveCurrentUserSettings();
     }
 
     partial void OnSelectedLiveModelChanged(TranscriptionModelOption? value)
@@ -988,6 +997,16 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private string? _importAudioErrorMessage;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ImportTranscriptionOnly))]
+    private bool _importWithDiarization = true;
+
+    public bool ImportTranscriptionOnly
+    {
+        get => !ImportWithDiarization;
+        set => ImportWithDiarization = !value;
+    }
+
     public bool HasSelectedImportAudioFile => !string.IsNullOrWhiteSpace(SelectedImportAudioFilePath) && System.IO.File.Exists(SelectedImportAudioFilePath);
 
     [RelayCommand]
@@ -1001,6 +1020,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         ResetImportAudioState();
+        ImportWithDiarization = EnableDiarizationOnTranscription;
         IsImportAudioModalOpen = true;
     }
 
@@ -1177,9 +1197,17 @@ public partial class MainViewModel : ObservableObject
                 }
             }
 
-            // 5. Lanzar procesamiento final en segundo plano
-            StatusMessage = $"Reunión '{meeting.Title}' importada. Procesando transcripción en segundo plano...";
-            var bgTask = _meetingProcessingService.EnqueueOrProcessAsync(meeting.Id, finalModelToUse);
+            // 5. Lanzar procesamiento final en segundo plano según opción seleccionada
+            var processingMode = ImportWithDiarization
+                ? ProcessingMode.TranscriptionAndDiarization
+                : ProcessingMode.TranscriptionOnly;
+
+            // Persistir preferencia del usuario
+            EnableDiarizationOnTranscription = ImportWithDiarization;
+            SaveCurrentUserSettings();
+
+            StatusMessage = $"Reunión '{meeting.Title}' importada. Procesando ({processingMode}) en segundo plano...";
+            var bgTask = _meetingProcessingService.EnqueueOrProcessAsync(meeting.Id, finalModelToUse, processingMode);
             CurrentProcessingTask = bgTask;
         }
         catch (Exception ex)
@@ -1482,7 +1510,7 @@ public partial class MainViewModel : ObservableObject
         get
         {
             var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
-            if (version == null) return "Versión 1.5.8";
+            if (version == null) return "Versión 1.5.9";
             return version.Revision > 0
                 ? $"Versión {version.Major}.{version.Minor}.{version.Build} r{version.Revision}"
                 : $"Versión {version.Major}.{version.Minor}.{version.Build}";
@@ -1494,7 +1522,7 @@ public partial class MainViewModel : ObservableObject
         get
         {
             var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
-            if (version == null) return "v1.5.8";
+            if (version == null) return "v1.5.9";
             return version.Revision > 0
                 ? $"v{version.Major}.{version.Minor}.{version.Build}r{version.Revision}"
                 : $"v{version.Major}.{version.Minor}.{version.Build}";
@@ -1644,6 +1672,146 @@ public partial class MainViewModel : ObservableObject
             IsEditingHistoricalTitle = false;
         }
     }
+
+    #region Delete Meeting Modal & Operations
+
+    [ObservableProperty]
+    private bool _isDeleteMeetingModalOpen;
+
+    [ObservableProperty]
+    private bool _isDeletingMeeting;
+
+    [ObservableProperty]
+    private MeetingHistoryItemViewModel? _meetingToDelete;
+
+    [ObservableProperty]
+    private string _deleteMeetingErrorMessage = string.Empty;
+
+    [RelayCommand]
+    public void PromptDeleteMeeting(MeetingHistoryItemViewModel? item)
+    {
+        if (IsDeletingMeeting) return;
+
+        var target = item ?? SelectedHistoricalMeeting;
+        if (target == null) return;
+
+        // Validar si la reunión está actualmente grabando o en procesamiento activo
+        if (_meetingService.CurrentMeeting?.Id == target.Id && (IsRecording || IsStartingMeeting))
+        {
+            MessageBox.Show(
+                Loc("DeleteMeeting_Error_ActiveRecording"),
+                Loc("DeleteMeeting_Modal_Title"),
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
+
+        if (_meetingProcessingService.IsProcessing && _meetingProcessingService.CurrentMeetingId == target.Id)
+        {
+            MessageBox.Show(
+                Loc("DeleteMeeting_Error_Processing"),
+                Loc("DeleteMeeting_Modal_Title"),
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
+
+        MeetingToDelete = target;
+        DeleteMeetingErrorMessage = string.Empty;
+        IsDeletingMeeting = false;
+        IsDeleteMeetingModalOpen = true;
+    }
+
+    [RelayCommand]
+    public void CancelDeleteMeeting()
+    {
+        if (IsDeletingMeeting) return;
+        IsDeleteMeetingModalOpen = false;
+        MeetingToDelete = null;
+        DeleteMeetingErrorMessage = string.Empty;
+    }
+
+    [RelayCommand]
+    public async Task ConfirmDeleteMeetingAsync()
+    {
+        if (IsDeletingMeeting || MeetingToDelete == null) return;
+
+        var targetItem = MeetingToDelete;
+        var meetingId = targetItem.Id;
+        var meetingTitle = targetItem.Title;
+
+        // Comprobación de seguridad en el momento de confirmación
+        if (_meetingService.CurrentMeeting?.Id == meetingId && (IsRecording || IsStartingMeeting))
+        {
+            DeleteMeetingErrorMessage = Loc("DeleteMeeting_Error_ActiveRecording");
+            return;
+        }
+
+        if (_meetingProcessingService.IsProcessing && _meetingProcessingService.CurrentMeetingId == meetingId)
+        {
+            DeleteMeetingErrorMessage = Loc("DeleteMeeting_Error_Processing");
+            return;
+        }
+
+        IsDeletingMeeting = true;
+        DeleteMeetingErrorMessage = string.Empty;
+
+        try
+        {
+            // 1. Si la reunión a eliminar está actualmente abierta en el workspace, liberar reproductor y audio
+            bool wasCurrentInWorkspace = _meetingService.CurrentMeeting?.Id == meetingId;
+            if (wasCurrentInWorkspace || string.Equals(_audioPlayerService.CurrentAudioFilePath, targetItem.Meeting.AudioFilePath, StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    _audioPlayerService.Stop();
+                    _audioPlayerService.Close();
+                    _transcriptAudioSyncService.Clear();
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogWarning(ex, "Fallo no crítico al liberar el reproductor de audio antes de eliminar la reunión.");
+                }
+            }
+
+            // 2. Ejecutar la eliminación completa en el repositorio
+            await _repository.DeleteMeetingAsync(meetingId);
+
+            // 3. Si era la reunión abierta en el espacio de trabajo, limpiar el workspace
+            if (wasCurrentInWorkspace)
+            {
+                CreateNewMeeting();
+            }
+
+            // 4. Actualizar la colección de reuniones del historial
+            var found = SavedMeetings.FirstOrDefault(m => m.Id == meetingId);
+            if (found != null)
+            {
+                SavedMeetings.Remove(found);
+            }
+
+            // 5. Actualizar la reunión seleccionada en la vista previa
+            if (SelectedHistoricalMeeting?.Id == meetingId)
+            {
+                SelectedHistoricalMeeting = SavedMeetings.FirstOrDefault();
+            }
+
+            IsDeleteMeetingModalOpen = false;
+            MeetingToDelete = null;
+            StatusMessage = LocFmt("DeleteMeeting_Success_Status", meetingTitle);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Error al eliminar la reunión {MeetingId}", meetingId);
+            DeleteMeetingErrorMessage = $"{Loc("DeleteMeeting_Error_Failed")}: {ex.Message}";
+        }
+        finally
+        {
+            IsDeletingMeeting = false;
+        }
+    }
+
+    #endregion
 
     [RelayCommand]
     private void CancelEditHistoricalTitle()
@@ -2414,6 +2582,8 @@ public partial class MainViewModel : ObservableObject
 
             CaptureSystemAudio = savedSettings.CaptureSystemAudio;
             _audioCaptureService.CaptureSystemAudio = savedSettings.CaptureSystemAudio;
+
+            EnableDiarizationOnTranscription = savedSettings.EnableDiarizationOnTranscription;
 
             if (!string.IsNullOrEmpty(savedSettings.SelectedLiveModel))
             {
@@ -3484,8 +3654,12 @@ public partial class MainViewModel : ObservableObject
                 }
 
                 // 3. Lanzar procesamiento final como tarea independiente en segundo plano
-                StatusMessage = $"Reunión guardada en: {MeetingFolderPath}. Procesamiento final iniciado en segundo plano...";
-                var bgTask = _meetingProcessingService.EnqueueOrProcessAsync(meeting.Id, finalModelToUse);
+                var processingMode = EnableDiarizationOnTranscription
+                    ? ProcessingMode.TranscriptionAndDiarization
+                    : ProcessingMode.TranscriptionOnly;
+
+                StatusMessage = $"Reunión guardada en: {MeetingFolderPath}. Procesamiento final iniciado ({processingMode}) en segundo plano...";
+                var bgTask = _meetingProcessingService.EnqueueOrProcessAsync(meeting.Id, finalModelToUse, processingMode);
                 CurrentProcessingTask = bgTask;
             }
         }
@@ -3504,6 +3678,145 @@ public partial class MainViewModel : ObservableObject
             StatusMessage = "Cancelando procesamiento en curso...";
         }
     }
+
+    #region Modal de Reprocesamiento Dedicado
+
+    [ObservableProperty]
+    private bool _isReprocessModalOpen;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsReprocessBothSelected))]
+    [NotifyPropertyChangedFor(nameof(IsReprocessTranscriptionOnlySelected))]
+    [NotifyPropertyChangedFor(nameof(IsReprocessDiarizationOnlySelected))]
+    [NotifyPropertyChangedFor(nameof(IsTranscriptionModelSelectionEnabled))]
+    private ProcessingMode _selectedReprocessMode = ProcessingMode.TranscriptionAndDiarization;
+
+    public bool IsReprocessBothSelected
+    {
+        get => SelectedReprocessMode == ProcessingMode.TranscriptionAndDiarization;
+        set { if (value) SelectedReprocessMode = ProcessingMode.TranscriptionAndDiarization; }
+    }
+
+    public bool IsReprocessTranscriptionOnlySelected
+    {
+        get => SelectedReprocessMode == ProcessingMode.TranscriptionOnly;
+        set { if (value) SelectedReprocessMode = ProcessingMode.TranscriptionOnly; }
+    }
+
+    public bool IsReprocessDiarizationOnlySelected
+    {
+        get => SelectedReprocessMode == ProcessingMode.DiarizationOnly;
+        set { if (value) SelectedReprocessMode = ProcessingMode.DiarizationOnly; }
+    }
+
+    public bool IsTranscriptionModelSelectionEnabled =>
+        SelectedReprocessMode != ProcessingMode.DiarizationOnly;
+
+    public bool CanReprocessDiarizationOnly
+    {
+        get
+        {
+            var m = _meetingService.CurrentMeeting ?? SelectedHistoricalMeeting?.Meeting;
+            return m != null && m.Transcript != null && m.Transcript.Count > 0;
+        }
+    }
+
+    [ObservableProperty]
+    private TranscriptionModelOption? _selectedReprocessModel;
+
+    public ObservableCollection<TranscriptionModelOption> AvailableReprocessModels => AvailableFinalModels;
+
+    [RelayCommand]
+    private void OpenReprocessModal()
+    {
+        var m = _meetingService.CurrentMeeting ?? SelectedHistoricalMeeting?.Meeting;
+        if (m == null || !m.AudioFileExists())
+        {
+            MessageBox.Show(Loc("Msg_Meeting_Reprocess_NoAudio"),
+                Loc("Msg_Meeting_Reprocess_NoAudio_Title"), MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        OnPropertyChanged(nameof(CanReprocessDiarizationOnly));
+
+        // Si no tiene transcripción previa, forzar modo que incluya transcripción
+        if (!CanReprocessDiarizationOnly && SelectedReprocessMode == ProcessingMode.DiarizationOnly)
+        {
+            SelectedReprocessMode = ProcessingMode.TranscriptionAndDiarization;
+        }
+
+        if (SelectedReprocessModel == null)
+        {
+            SelectedReprocessModel = SelectedFinalModel ??
+                AvailableFinalModels.FirstOrDefault(x => x.ModelSize == ModelSize.Qwen3_17B) ??
+                AvailableFinalModels.FirstOrDefault();
+        }
+
+        IsReprocessModalOpen = true;
+    }
+
+    [RelayCommand]
+    private void CloseReprocessModal()
+    {
+        IsReprocessModalOpen = false;
+    }
+
+    [RelayCommand]
+    private Task ConfirmReprocessAsync()
+    {
+        var meeting = _meetingService.CurrentMeeting ?? SelectedHistoricalMeeting?.Meeting;
+        if (meeting == null) return Task.CompletedTask;
+
+        IsReprocessModalOpen = false;
+
+        _audioPlayerService.Stop();
+        _audioPlayerService.Close();
+        _transcriptAudioSyncService.Clear();
+
+        if (string.IsNullOrEmpty(meeting.AudioFilePath) || !System.IO.File.Exists(meeting.AudioFilePath))
+        {
+            MessageBox.Show(Loc("Msg_Meeting_Reprocess_NoAudio"),
+                Loc("Msg_Meeting_Reprocess_NoAudio_Title"), MessageBoxButton.OK, MessageBoxImage.Warning);
+            return Task.CompletedTask;
+        }
+
+        string? targetModel = null;
+        if (SelectedReprocessMode != ProcessingMode.DiarizationOnly)
+        {
+            if (SelectedReprocessModel?.ModelSize.HasValue == true)
+            {
+                targetModel = SelectedReprocessModel.ModelSize.Value.ToString();
+            }
+            else if (SelectedReprocessModel?.IsSameAsLive == true)
+            {
+                targetModel = _transcriptionService.CurrentModel.ToString();
+            }
+            else
+            {
+                targetModel = SelectedFinalModel?.ModelSize?.ToString() ?? "Qwen3_17B";
+            }
+        }
+
+        if (_meetingService.CurrentMeeting?.Id == meeting.Id)
+        {
+            IsPostProcessing = true;
+            PostProcessingProgress = 0.0;
+            PostProcessingStatusText = SelectedReprocessMode switch
+            {
+                ProcessingMode.DiarizationOnly => "Reprocesando solo diarización...",
+                ProcessingMode.TranscriptionOnly => $"Reprocesando solo transcripción ({targetModel})...",
+                _ => $"Reprocesando transcripción ({targetModel}) y diarización..."
+            };
+            CanCancelPostProcessing = true;
+        }
+
+        StatusMessage = $"Reprocesando reunión '{meeting.Title}' ({SelectedReprocessMode})...";
+        var task = _meetingProcessingService.EnqueueOrProcessAsync(meeting.Id, targetModel, SelectedReprocessMode);
+        CurrentProcessingTask = task;
+        return Task.CompletedTask;
+    }
+
+    #endregion
 
     [RelayCommand]
     private Task ReprocessHistoricalMeetingAsync(string? modelName)
@@ -3535,7 +3848,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         StatusMessage = $"Reprocesando reunión '{meeting.Title}' con modelo {targetModel}...";
-        var task = _meetingProcessingService.EnqueueOrProcessAsync(meeting.Id, targetModel);
+        var task = _meetingProcessingService.EnqueueOrProcessAsync(meeting.Id, targetModel, ProcessingMode.TranscriptionAndDiarization);
         CurrentProcessingTask = task;
         return Task.CompletedTask;
     }
@@ -4135,6 +4448,115 @@ public partial class MainViewModel : ObservableObject
         await SaveActaChangesAsync();
         StatusMessage = "Se ha restaurado el contenido original del acta.";
     }
+
+    #region Delete Acta Version Modal & Operations
+
+    [ObservableProperty]
+    private bool _isDeleteActaVersionModalOpen;
+
+    [ObservableProperty]
+    private bool _isDeletingActaVersion;
+
+    [ObservableProperty]
+    private ActaVersionItemViewModel? _actaVersionToDelete;
+
+    [ObservableProperty]
+    private string _deleteActaVersionErrorMessage = string.Empty;
+
+    [RelayCommand]
+    public void PromptDeleteActaVersion(ActaVersionItemViewModel? item)
+    {
+        if (IsDeletingActaVersion) return;
+        if (item == null) return;
+
+        ActaVersionToDelete = item;
+        DeleteActaVersionErrorMessage = string.Empty;
+        IsDeletingActaVersion = false;
+        IsDeleteActaVersionModalOpen = true;
+    }
+
+    [RelayCommand]
+    public void CancelDeleteActaVersion()
+    {
+        if (IsDeletingActaVersion) return;
+        IsDeleteActaVersionModalOpen = false;
+        ActaVersionToDelete = null;
+        DeleteActaVersionErrorMessage = string.Empty;
+    }
+
+    [RelayCommand]
+    public async Task ConfirmDeleteActaVersionAsync()
+    {
+        if (IsDeletingActaVersion || ActaVersionToDelete == null) return;
+
+        var targetVersion = ActaVersionToDelete;
+        var versionId = targetVersion.Id;
+        var meetingId = targetVersion.MeetingId;
+
+        var meeting = _actaTargetMeeting
+                      ?? _meetingService.CurrentMeeting
+                      ?? SelectedHistoricalMeeting?.Meeting;
+
+        if (meeting == null || (!string.IsNullOrEmpty(meetingId) && !string.Equals(meeting.Id, meetingId, StringComparison.OrdinalIgnoreCase)))
+        {
+            if (!string.IsNullOrEmpty(meetingId))
+            {
+                meeting = await _repository.GetMeetingAsync(meetingId);
+            }
+        }
+
+        if (meeting == null)
+        {
+            DeleteActaVersionErrorMessage = Loc("DeleteActaVersion_Error_Failed");
+            return;
+        }
+
+        IsDeletingActaVersion = true;
+        DeleteActaVersionErrorMessage = string.Empty;
+
+        try
+        {
+            // 1. Borrar versión en repositorio físico
+            await _repository.DeleteActaVersionAsync(meeting.Id, versionId);
+
+            // 2. Actualizar el modelo de dominio en memoria
+            meeting.RemoveActaVersion(versionId);
+
+            // 3. Determinar qué versión debe quedar seleccionada
+            bool wasSelected = SelectedActaVersion?.Id == versionId;
+            string? versionIdToSelect = wasSelected
+                ? meeting.SelectedActaVersionId
+                : SelectedActaVersion?.Id;
+
+            // 4. Actualizar la colección AvailableActaVersions y la vista de la pestaña Acta
+            UpdateAvailableActaVersions(meeting, versionIdToSelect);
+
+            // 5. Si la reunión estaba en el Historial, refrescar sus badges y vista previa
+            var histItem = SavedMeetings.FirstOrDefault(m => m.Id == meeting.Id);
+            histItem?.RefreshStatus();
+            if (SelectedHistoricalMeeting?.Id == meeting.Id)
+            {
+                SelectedHistoricalMeeting.RefreshStatus();
+                SelectedHistoryActaMarkdown = meeting.ActaMarkdown ?? string.Empty;
+            }
+
+            // 6. Cerrar el modal de confirmación manteniendo el modal de acta abierto
+            IsDeleteActaVersionModalOpen = false;
+            ActaVersionToDelete = null;
+            StatusMessage = Loc("DeleteActaVersion_Success_Status");
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Error al eliminar la versión de acta {VersionId}", versionId);
+            DeleteActaVersionErrorMessage = $"{Loc("DeleteActaVersion_Error_Failed")}: {ex.Message}";
+        }
+        finally
+        {
+            IsDeletingActaVersion = false;
+        }
+    }
+
+    #endregion
 
     [RelayCommand]
     private void OpenAiConfig()

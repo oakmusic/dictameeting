@@ -83,12 +83,16 @@ public sealed class PyAnnoteCommunity1DiarizationService : ISpeakerDiarizationSe
         progress?.Report(0.02);
 
         // 1. Decodificar y remuestrear audio a 16 kHz Mono float[] en memoria
+        var loadAudioSw = System.Diagnostics.Stopwatch.StartNew();
         float[] samples = await Task.Run(() => LoadAudioAs16kMono(audioFilePath), cancellationToken);
+        loadAudioSw.Stop();
 
         cancellationToken.ThrowIfCancellationRequested();
 
         // 2. Ejecutar Diarización
-        return await DiarizeAsync(samples, 16000, options, progress, cancellationToken);
+        var result = await DiarizeAsync(samples, 16000, options, progress, cancellationToken);
+        result.Timings.AudioLoadingTime = loadAudioSw.Elapsed;
+        return result;
     }
 
     public Task<DiarizationResult> DiarizeAsync(
@@ -108,12 +112,16 @@ public sealed class PyAnnoteCommunity1DiarizationService : ISpeakerDiarizationSe
                 resampled = ResampleLinear(samples, sampleRate, 16000);
             }
 
+            bool wasCold;
+            TimeSpan initTime;
             lock (_lock)
             {
-                EnsurePipelineInitialized(options?.PreferredExecutionProvider);
+                (wasCold, initTime) = EnsurePipelineInitialized(options?.PreferredExecutionProvider);
             }
 
             var result = _pipeline!.ProcessAudio(resampled, options, progress, cancellationToken);
+            result.Timings.IsWarmRun = !wasCold;
+            result.Timings.ModelInitializationTime = initTime;
 
             lock (_lock)
             {
@@ -128,10 +136,11 @@ public sealed class PyAnnoteCommunity1DiarizationService : ISpeakerDiarizationSe
         }, cancellationToken);
     }
 
-    private void EnsurePipelineInitialized(string? preferredProvider)
+    private (bool WasColdStart, TimeSpan InitTime) EnsurePipelineInitialized(string? preferredProvider)
     {
-        if (_pipeline != null) return;
+        if (_pipeline != null) return (false, TimeSpan.Zero);
 
+        var sw = System.Diagnostics.Stopwatch.StartNew();
         string modelsDir = ResolveModelsDirectory();
         string segPath = Path.Combine(modelsDir, "community1-segmentation.onnx");
         string embPath = Path.Combine(modelsDir, "community1-embedding.onnx");
@@ -139,6 +148,8 @@ public sealed class PyAnnoteCommunity1DiarizationService : ISpeakerDiarizationSe
 
         _logger?.LogInformation("Inicializando PyAnnote Community-1 Pipeline desde: {Dir}", modelsDir);
         _pipeline = new Community1DiarizationPipeline(segPath, embPath, pldaPath, preferredProvider, _logger);
+        sw.Stop();
+        return (true, sw.Elapsed);
     }
 
     private string ResolveModelsDirectory()

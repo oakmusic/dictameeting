@@ -702,14 +702,14 @@ public class OpenRouterActaServiceTests
 
         var meeting = new Meeting
         {
-            Title = "Reunión de prueba DictaMeeting 1.5.8",
+            Title = "Reunión de prueba DictaMeeting 1.5.9",
             Date = DateTime.Today,
             Organizer = "Equipo Técnico"
         };
         meeting.Transcript.Add(new TranscriptSegment
         {
             SpeakerId = "SPEAKER_00",
-            Text = "Buenos días. En esta reunión acordamos lanzar la versión 1.5.8 de DictaMeeting con la corrección definitiva para OpenRouter."
+            Text = "Buenos días. En esta reunión acordamos lanzar la versión 1.5.9 de DictaMeeting con la corrección definitiva para OpenRouter."
         });
 
         var options = new ActaGenerationOptions

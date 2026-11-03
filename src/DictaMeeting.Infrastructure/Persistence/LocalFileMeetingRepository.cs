@@ -42,6 +42,10 @@ public class LocalFileMeetingRepository : IMeetingRepository
         {
             Directory.CreateDirectory(_baseDirectory);
         }
+        else
+        {
+            CleanupPendingDeletions();
+        }
     }
 
     /// <summary>
@@ -346,6 +350,11 @@ public class LocalFileMeetingRepository : IMeetingRepository
         var directories = Directory.GetDirectories(_baseDirectory);
         foreach (var dir in directories)
         {
+            if (Path.GetFileName(dir).StartsWith(".deleting_", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
             // Buscar prioritariamente *_meeting.json, con fallback a meeting.json tradicional
             string? jsonFile = Directory.GetFiles(dir, "*_meeting.json").FirstOrDefault();
             if (jsonFile == null)
@@ -372,6 +381,7 @@ public class LocalFileMeetingRepository : IMeetingRepository
                     if (meeting != null)
                     {
                         meeting.SyncParticipantsFromTranscript();
+                        meeting.EnsureCompatibility();
 
                         // Asegurar resolución de AudioFilePath relativo/local
                         if (string.IsNullOrWhiteSpace(meeting.AudioFilePath) || !File.Exists(meeting.AudioFilePath))
@@ -555,5 +565,377 @@ public class LocalFileMeetingRepository : IMeetingRepository
         var clean = string.Join("_", name.Split(invalid, StringSplitOptions.RemoveEmptyEntries)).Trim();
         clean = clean.Replace(' ', '-');
         return string.IsNullOrWhiteSpace(clean) ? "Reunion" : clean;
+    }
+
+    /// <summary>
+    /// Limpia los directorios temporales de borrado pendiente (.deleting_*) que hayan podido quedar de sesiones anteriores.
+    /// </summary>
+    private void CleanupPendingDeletions()
+    {
+        try
+        {
+            if (!Directory.Exists(_baseDirectory)) return;
+
+            var pendingDirs = Directory.GetDirectories(_baseDirectory, ".deleting_*");
+            foreach (var dir in pendingDirs)
+            {
+                try
+                {
+                    DeleteDirectoryWithRetries(dir, maxRetries: 2, delayMs: 50);
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogDebug(ex, "No se pudo limpiar el directorio temporal de borrado pendiente: {Dir}", dir);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogDebug(ex, "Error al comprobar directorios de borrado pendiente en {BaseDir}", _baseDirectory);
+        }
+    }
+
+    /// <summary>
+    /// Localiza de forma segura el directorio en disco de una reunión a partir de su ID único.
+    /// </summary>
+    public string? FindMeetingDirectory(string meetingId)
+    {
+        if (string.IsNullOrWhiteSpace(meetingId) || !Directory.Exists(_baseDirectory)) return null;
+
+        var directories = Directory.GetDirectories(_baseDirectory);
+        var shortId = meetingId.Length >= 6 ? meetingId[..6] : meetingId;
+
+        // 1. Intento rápido: directorio que finaliza con _{shortId}
+        foreach (var dir in directories)
+        {
+            var dirName = Path.GetFileName(dir);
+            if (dirName.StartsWith(".deleting_", StringComparison.OrdinalIgnoreCase)) continue;
+
+            if (dirName.EndsWith($"_{shortId}", StringComparison.OrdinalIgnoreCase))
+            {
+                if (DirectoryMatchesMeetingId(dir, meetingId))
+                {
+                    return dir;
+                }
+            }
+        }
+
+        // 2. Búsqueda exhaustiva en todos los subdirectorios si la carpeta fue renombrada
+        foreach (var dir in directories)
+        {
+            var dirName = Path.GetFileName(dir);
+            if (dirName.StartsWith(".deleting_", StringComparison.OrdinalIgnoreCase)) continue;
+
+            if (DirectoryMatchesMeetingId(dir, meetingId))
+            {
+                return dir;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool DirectoryMatchesMeetingId(string dir, string meetingId)
+    {
+        var jsonFile = Directory.GetFiles(dir, "*_meeting.json").FirstOrDefault()
+                       ?? (File.Exists(Path.Combine(dir, "meeting.json")) ? Path.Combine(dir, "meeting.json") : null);
+
+        if (jsonFile != null && File.Exists(jsonFile))
+        {
+            try
+            {
+                using var stream = new FileStream(jsonFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+                using var doc = JsonDocument.Parse(stream);
+                if (doc.RootElement.TryGetProperty("id", out var idProp) &&
+                    string.Equals(idProp.GetString(), meetingId, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+            catch
+            {
+                // Ignorar archivos temporalmente no legibles
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Valida que el directorio pertenezca estrictamente al almacenamiento administrado de reuniones y no sea el directorio raíz.
+    /// </summary>
+    private void ValidateSafeMeetingDirectory(string dirPath)
+    {
+        if (string.IsNullOrWhiteSpace(dirPath))
+            throw new ArgumentException("La ruta del directorio de la reunión no puede estar vacía.", nameof(dirPath));
+
+        var fullBase = Path.GetFullPath(_baseDirectory).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var fullDir = Path.GetFullPath(dirPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+        if (string.Equals(fullBase, fullDir, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("Operación denegada: no se permite eliminar el directorio raíz de reuniones.");
+        }
+
+        if (!fullDir.StartsWith(fullBase + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException($"Operación denegada: el directorio '{fullDir}' no pertenece al almacenamiento de reuniones '{fullBase}'.");
+        }
+    }
+
+    /// <summary>
+    /// Elimina una reunión completa, incluyendo todos sus archivos asociados (JSON, audios, transcripciones, actas).
+    /// </summary>
+    public async Task<bool> DeleteMeetingAsync(string meetingId, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(meetingId))
+        {
+            throw new ArgumentException("El identificador de la reunión no puede estar vacío.", nameof(meetingId));
+        }
+
+        var dirPath = FindMeetingDirectory(meetingId);
+        if (dirPath == null || !Directory.Exists(dirPath))
+        {
+            _logger?.LogWarning("No se encontró el directorio de la reunión con ID {MeetingId} para eliminar.", meetingId);
+            return false;
+        }
+
+        ValidateSafeMeetingDirectory(dirPath);
+
+        var dirLock = GetLockForDir(dirPath);
+        await dirLock.WaitAsync(cancellationToken);
+
+        try
+        {
+            var shortId = meetingId.Length >= 6 ? meetingId[..6] : meetingId;
+            var tempDeletingDir = Path.Combine(_baseDirectory, $".deleting_{shortId}_{Guid.NewGuid():N}");
+
+            // Fase 1: Mover atómicamente a directorio temporal de borrado pendiente
+            Directory.Move(dirPath, tempDeletingDir);
+
+            // Fase 2: Borrado físico con reintentos
+            DeleteDirectoryWithRetries(tempDeletingDir);
+
+            _dirLocks.TryRemove(dirPath, out _);
+            _logger?.LogInformation("Reunión {MeetingId} y directorio {Path} eliminados correctamente.", meetingId, dirPath);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Error al eliminar la reunión {MeetingId} en {Path}", meetingId, dirPath);
+            throw;
+        }
+        finally
+        {
+            try { dirLock.Release(); } catch { }
+        }
+    }
+
+    /// <summary>
+    /// Elimina una versión individual del acta de una reunión, conservando el resto de los datos y versiones.
+    /// </summary>
+    public async Task<bool> DeleteActaVersionAsync(string meetingId, string versionId, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(meetingId))
+            throw new ArgumentException("El ID de reunión no puede estar vacío.", nameof(meetingId));
+        if (string.IsNullOrWhiteSpace(versionId))
+            throw new ArgumentException("El ID de versión no puede estar vacío.", nameof(versionId));
+
+        var dirPath = FindMeetingDirectory(meetingId);
+        if (dirPath == null || !Directory.Exists(dirPath))
+        {
+            _logger?.LogWarning("No se encontró el directorio de la reunión {MeetingId} para eliminar versión {VersionId}.", meetingId, versionId);
+            return false;
+        }
+
+        ValidateSafeMeetingDirectory(dirPath);
+
+        var dirLock = GetLockForDir(dirPath);
+        await dirLock.WaitAsync(cancellationToken);
+
+        try
+        {
+            // 1. Localizar y cargar el JSON de la reunión
+            string? jsonFile = Directory.GetFiles(dirPath, "*_meeting.json").FirstOrDefault();
+            if (jsonFile == null)
+            {
+                var legacyPath = Path.Combine(dirPath, "meeting.json");
+                if (File.Exists(legacyPath))
+                {
+                    jsonFile = legacyPath;
+                }
+            }
+
+            if (jsonFile == null || !File.Exists(jsonFile))
+            {
+                _logger?.LogWarning("No se encontró el archivo JSON de la reunión {MeetingId}.", meetingId);
+                return false;
+            }
+
+            var json = await SafeReadAllTextAsync(jsonFile, cancellationToken);
+            var meeting = JsonSerializer.Deserialize<Meeting>(json, JsonOptions);
+            if (meeting == null) return false;
+
+            meeting.SyncParticipantsFromTranscript();
+            meeting.EnsureCompatibility();
+
+            // Cargar versiones completas de actas desde actas/ o legacy
+            await LoadActaVersionsAsync(meeting, dirPath, cancellationToken);
+
+            var versionToDelete = meeting.ActaVersions.FirstOrDefault(v => string.Equals(v.Id, versionId, StringComparison.OrdinalIgnoreCase));
+            if (versionToDelete == null)
+            {
+                _logger?.LogWarning("No se encontró la versión de acta {VersionId} en la reunión {MeetingId}.", versionId, meetingId);
+                return false;
+            }
+
+            // 2. Eliminar el archivo Markdown individual en la carpeta actas/ si existe
+            var actasDir = Path.Combine(dirPath, "actas");
+            if (!string.IsNullOrWhiteSpace(versionToDelete.FileName))
+            {
+                var cleanFileName = Path.GetFileName(versionToDelete.FileName);
+                var verFilePath = Path.Combine(actasDir, cleanFileName);
+                if (File.Exists(verFilePath))
+                {
+                    try
+                    {
+                        File.Delete(verFilePath);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger?.LogWarning(ex, "No se pudo eliminar el archivo de versión {Path}", verFilePath);
+                    }
+                }
+            }
+
+            // 3. Eliminar de la lista de versiones en el modelo y actualizar versión activa
+            meeting.RemoveActaVersion(versionId);
+
+            var baseName = GetMeetingFileBaseName(meeting);
+            var rootActaFile = Path.Combine(dirPath, $"{baseName}_acta.md");
+
+            if (meeting.ActaVersions.Count > 0)
+            {
+                var activeVersion = meeting.GetActiveActaVersion() ?? meeting.ActaVersions.OrderByDescending(v => v.CreatedAt).First();
+                meeting.SelectedActaVersionId = activeVersion.Id;
+                meeting.ActaMarkdown = activeVersion.MarkdownContent;
+
+                // Actualizar archivo de acta en la raíz
+                await SafeWriteAllTextAsync(rootActaFile, meeting.ActaMarkdown ?? string.Empty, cancellationToken);
+
+                // Actualizar index.json
+                var indexObj = new MeetingActaIndex
+                {
+                    MeetingId = meeting.Id,
+                    ActiveVersionId = meeting.SelectedActaVersionId,
+                    Versions = meeting.ActaVersions.Select(v => new MeetingActaVersionMetadata
+                    {
+                        Id = v.Id,
+                        MeetingId = v.MeetingId,
+                        FileName = v.FileName,
+                        Language = v.Language,
+                        DetailLevel = v.DetailLevel,
+                        CreatedAt = v.CreatedAt,
+                        LastModifiedAt = v.LastModifiedAt,
+                        ModelUsed = v.ModelUsed,
+                        IsLegacyMigrated = v.IsLegacyMigrated,
+                        OriginalAiMarkdownContent = v.OriginalAiMarkdownContent ?? v.MarkdownContent
+                    }).ToList()
+                };
+
+                var indexJson = JsonSerializer.Serialize(indexObj, JsonOptions);
+                await SafeWriteAllTextAsync(Path.Combine(actasDir, "index.json"), indexJson, cancellationToken);
+            }
+            else
+            {
+                // Se eliminó la última versión disponible
+                meeting.SelectedActaVersionId = null;
+                meeting.ActaMarkdown = null;
+
+                if (File.Exists(rootActaFile))
+                {
+                    try { File.Delete(rootActaFile); } catch { }
+                }
+
+                // Guardar index.json vacío
+                var indexObj = new MeetingActaIndex
+                {
+                    MeetingId = meeting.Id,
+                    ActiveVersionId = null,
+                    Versions = new List<MeetingActaVersionMetadata>()
+                };
+                var indexJson = JsonSerializer.Serialize(indexObj, JsonOptions);
+                await SafeWriteAllTextAsync(Path.Combine(actasDir, "index.json"), indexJson, cancellationToken);
+            }
+
+            // 4. Guardar JSON principal de la reunión
+            var updatedJson = _exporter.ExportToJson(meeting);
+            await SafeWriteAllTextAsync(jsonFile, updatedJson, cancellationToken);
+
+            // 5. Actualizar _params.json si existe
+            var paramsFile = Path.Combine(dirPath, $"{baseName}_params.json");
+            if (File.Exists(paramsFile))
+            {
+                try
+                {
+                    var paramsJson = await SafeReadAllTextAsync(paramsFile, cancellationToken);
+                    var paramsObj = JsonSerializer.Deserialize<MeetingSessionParameters>(paramsJson, JsonOptions);
+                    if (paramsObj != null)
+                    {
+                        if (meeting.ActaVersions.Count == 0)
+                        {
+                            paramsObj.GeneratedFiles.Remove("ActaMarkdown");
+                        }
+                        var updatedParamsJson = JsonSerializer.Serialize(paramsObj, JsonOptions);
+                        await SafeWriteAllTextAsync(paramsFile, updatedParamsJson, cancellationToken);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogWarning(ex, "Fallo no crítico al actualizar _params.json tras borrar versión de acta.");
+                }
+            }
+
+            _logger?.LogInformation("Versión {VersionId} eliminada con éxito de la reunión {MeetingId}.", versionId, meetingId);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Error al eliminar la versión de acta {VersionId} de la reunión {MeetingId}.", versionId, meetingId);
+            throw;
+        }
+        finally
+        {
+            dirLock.Release();
+        }
+    }
+
+    private static void DeleteDirectoryWithRetries(string path, int maxRetries = 5, int delayMs = 100)
+    {
+        if (!Directory.Exists(path)) return;
+
+        for (int attempt = 1; attempt <= maxRetries; attempt++)
+        {
+            try
+            {
+                var dirInfo = new DirectoryInfo(path);
+                foreach (var file in dirInfo.GetFiles("*", SearchOption.AllDirectories))
+                {
+                    try
+                    {
+                        file.Attributes = FileAttributes.Normal;
+                    }
+                    catch { }
+                }
+
+                Directory.Delete(path, recursive: true);
+                return;
+            }
+            catch (Exception ex) when ((ex is IOException || ex is UnauthorizedAccessException) && attempt < maxRetries)
+            {
+                Thread.Sleep(delayMs * attempt);
+            }
+        }
+
+        Directory.Delete(path, recursive: true);
     }
 }

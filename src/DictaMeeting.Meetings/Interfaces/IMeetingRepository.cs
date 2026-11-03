@@ -12,4 +12,6 @@ public interface IMeetingRepository
     string GetMeetingFileBaseName(Meeting meeting);
     string GetAudioFilePath(Meeting meeting);
     string GetAudioFilePath(Meeting meeting, string? extension) => GetAudioFilePath(meeting);
+    Task<bool> DeleteMeetingAsync(string meetingId, CancellationToken cancellationToken = default) => Task.FromResult(false);
+    Task<bool> DeleteActaVersionAsync(string meetingId, string versionId, CancellationToken cancellationToken = default) => Task.FromResult(false);
 }

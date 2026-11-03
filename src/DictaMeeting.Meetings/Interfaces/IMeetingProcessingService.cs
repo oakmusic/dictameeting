@@ -40,7 +40,11 @@ public interface IMeetingProcessingService
     event EventHandler<MeetingProcessingProgressEventArgs>? ProgressChanged;
     event EventHandler<MeetingProcessingCompletedEventArgs>? ProcessingCompleted;
 
-    Task EnqueueOrProcessAsync(string meetingId, string? targetModel = null, CancellationToken cancellationToken = default);
+    Task EnqueueOrProcessAsync(
+        string meetingId,
+        string? targetModel = null,
+        ProcessingMode mode = ProcessingMode.TranscriptionAndDiarization,
+        CancellationToken cancellationToken = default);
     Task CancelProcessingAsync(string meetingId);
     Task RecoverInterruptedJobsAsync(CancellationToken cancellationToken = default);
 }

@@ -51,11 +51,14 @@ public interface ISpeakerTranscriptAligner
 {
     /// <summary>
     /// Asocia cada segmento del ASR con el hablante exclusivo correspondiente según solapamiento temporal y fronteras de frase.
+    /// Preserva identidades previas asignadas manualmente si existe correspondencia acústica o temporal fiable.
     /// </summary>
     TranscriptAlignmentResult Align(
         IReadOnlyList<TranscriptSegment> asrSegments,
         DiarizationResult diarizationResult,
-        IReadOnlyList<Speaker>? existingParticipants = null);
+        IReadOnlyList<Speaker>? existingParticipants = null,
+        bool preserveExistingSegments = false,
+        IReadOnlyDictionary<string, float[]>? existingCentroids = null);
 }
 
 /// <summary>

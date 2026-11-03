@@ -7,7 +7,7 @@
 param(
     [string]$Configuration = "Release",
     [string]$Runtime = "win-x64",
-    [string]$Version = "1.5.8",
+    [string]$Version = "1.5.9",
     [switch]$SkipTests = $false,
     [string]$CertificatePath = $env:CODE_SIGN_CERTIFICATE,
     [string]$CertificatePassword = $env:CODE_SIGN_PASSWORD,

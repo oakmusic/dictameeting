@@ -25,6 +25,31 @@ public class Meeting
     public string? ProcessingError { get; set; }
     public double ProcessingProgress { get; set; }
 
+    /// <summary>
+    /// Estado independiente del proceso de transcripción ASR.
+    /// </summary>
+    public TranscriptionStatus TranscriptionStatus { get; set; } = TranscriptionStatus.None;
+
+    /// <summary>
+    /// Mensaje de error si la transcripción ASR falló.
+    /// </summary>
+    public string? TranscriptionError { get; set; }
+
+    /// <summary>
+    /// Estado independiente del proceso de diarización acústica.
+    /// </summary>
+    public DiarizationStatus DiarizationStatus { get; set; } = DiarizationStatus.None;
+
+    /// <summary>
+    /// Mensaje de error si la diarización acústica falló.
+    /// </summary>
+    public string? DiarizationError { get; set; }
+
+    /// <summary>
+    /// Centroides promedio de embeddings (256-D) de cada interlocutor detectado para re-identificación en re-diarizaciones.
+    /// </summary>
+    public Dictionary<string, float[]> SpeakerCentroids { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
     public string? AudioFilePath { get; set; }
     public bool AudioFileExists() => !string.IsNullOrEmpty(AudioFilePath) && System.IO.File.Exists(AudioFilePath);
     public string? Language { get; set; }
@@ -52,6 +77,38 @@ public class Meeting
             if (found != null) return found;
         }
         return ActaVersions.OrderByDescending(v => v.CreatedAt).FirstOrDefault();
+    }
+
+    /// <summary>
+    /// Elimina una versión individual del acta y reasigna la versión activa a la más reciente de las restantes.
+    /// Si era la última versión, limpia la versión activa y el contenido Markdown.
+    /// </summary>
+    /// <returns>True si la versión existía y fue eliminada; de lo contrario, False.</returns>
+    public bool RemoveActaVersion(string versionId)
+    {
+        if (string.IsNullOrWhiteSpace(versionId) || ActaVersions == null) return false;
+
+        var ver = ActaVersions.FirstOrDefault(v => string.Equals(v.Id, versionId, StringComparison.OrdinalIgnoreCase));
+        if (ver == null) return false;
+
+        ActaVersions.Remove(ver);
+
+        if (string.Equals(SelectedActaVersionId, versionId, StringComparison.OrdinalIgnoreCase))
+        {
+            if (ActaVersions.Count > 0)
+            {
+                var nextActive = ActaVersions.OrderByDescending(v => v.CreatedAt).First();
+                SelectedActaVersionId = nextActive.Id;
+                ActaMarkdown = nextActive.MarkdownContent;
+            }
+            else
+            {
+                SelectedActaVersionId = null;
+                ActaMarkdown = null;
+            }
+        }
+
+        return true;
     }
 
     public List<string> ExpectedParticipants { get; set; } = new();
@@ -220,6 +277,29 @@ public class Meeting
                     DisplayName = displayName,
                     ColorHex = color
                 });
+            }
+        }
+    }
+
+    /// <summary>
+    /// Asegura la compatibilidad hacia atrás para reuniones existentes migradas desde versiones
+    /// que no contaban con estados independientes de transcripción y diarización.
+    /// </summary>
+    public void EnsureCompatibility()
+    {
+        // Si no tiene estado de transcripción pero ya cuenta con transcripción guardada
+        if (TranscriptionStatus == TranscriptionStatus.None && Transcript != null && Transcript.Count > 0)
+        {
+            TranscriptionStatus = TranscriptionStatus.Completed;
+        }
+
+        // Si no tiene estado de diarización pero tiene participantes y speakers en la transcripción
+        if (DiarizationStatus == DiarizationStatus.None)
+        {
+            if (Participants != null && Participants.Count > 0 &&
+                Transcript != null && Transcript.Any(t => !string.IsNullOrWhiteSpace(t.SpeakerId)))
+            {
+                DiarizationStatus = DiarizationStatus.Completed;
             }
         }
     }

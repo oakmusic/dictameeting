@@ -139,6 +139,9 @@
     <!-- Minimalist Info Circle -->
     <Geometry x:Key="GeoInfo">M 12 2 C 6.48 2 2 6.48 2 12 C 2 17.52 6.48 22 12 22 C 17.52 22 22 17.52 22 12 C 22 6.48 17.52 2 12 2 Z M 11 7 H 13 V 9 H 11 Z M 11 11 H 13 V 17 H 11 Z</Geometry>
 
+    <!-- Trash / Delete Icon -->
+    <Geometry x:Key="GeoTrash">M 15.5 4 l -1 -1 h -5 l -1 1 H 5 v 2 h 14 V 4 z M 6 19 c 0 1.1 .9 2 2 2 h 8 c 1.1 0 2 -.9 2 -2 V 7 H 6 v 12 z</Geometry>
+
     <!-- GitHub Mark -->
     <Geometry x:Key="GeoGitHub">M 12 2 C 6.477 2 2 6.484 2 12.017 c 0 4.425 2.865 8.18 6.839 9.504 c .5 .092 .682 -.217 .682 -.483 c 0 -.237 -.008 -.868 -.013 -1.703 c -2.782 .605 -3.369 -1.343 -3.369 -1.343 c -.454 -1.158 -1.11 -1.466 -1.11 -1.466 c -.908 -.62 .069 -.608 .069 -.608 c 1.003 .07 1.53 1.032 1.53 1.032 c .892 1.53 2.341 1.088 2.91 .832 c .092 -.647 .35 -1.088 .636 -1.338 c -2.22 -.253 -4.555 -1.113 -4.555 -4.951 c 0 -1.093 .39 -1.988 1.029 -2.688 c -.103 -.253 -.446 -1.272 .098 -2.65 c 0 0 .84 -.27 2.75 1.026 A 9.564 9.564 0 0 1 12 6.844 c .85 .004 1.705 .115 2.504 .337 c 1.909 -1.296 2.747 -1.027 2.747 -1.027 c .546 1.379 .202 2.398 .1 2.651 c .64 .7 1.028 1.595 1.028 2.688 c 0 3.848 -2.339 4.695 -4.566 4.943 c .359 .309 .678 .92 .678 1.855 c 0 1.338 -.012 2.419 -.012 2.747 c 0 .268 .18 .58 .688 .482 A 10.019 10.019 0 0 0 22 12.017 C 22 6.484 17.522 2 12 2 z</Geometry>
 
@@ -361,6 +364,52 @@
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="border" Property="Background" Value="{DynamicResource BgTertiaryBrush}" />
                             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Discrete Trash Icon Button (for meeting cards and acta versions) -->
+    <Style x:Key="TrashIconButton" TargetType="Button">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Width" Value="24" />
+        <Setter Property="Height" Value="24" />
+        <Setter Property="Padding" Value="4" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="border"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="Transparent"
+                            BorderThickness="1"
+                            CornerRadius="5"
+                            Padding="{TemplateBinding Padding}">
+                        <Path x:Name="icon"
+                              Data="{StaticResource GeoTrash}"
+                              Fill="{TemplateBinding Foreground}"
+                              Width="12"
+                              Height="12"
+                              Stretch="Uniform"
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="border" Property="Background" Value="#1AEF4444" />
+                            <Setter TargetName="border" Property="BorderBrush" Value="#30EF4444" />
+                            <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="border" Property="Background" Value="#30EF4444" />
+                            <Setter Property="Foreground" Value="{DynamicResource DangerHoverBrush}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.35" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>

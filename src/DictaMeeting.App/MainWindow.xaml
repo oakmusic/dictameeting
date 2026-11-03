@@ -68,7 +68,7 @@
                                            VerticalAlignment="Center"
                                            Margin="0,-1,10,0" />
                                 <Border Background="{DynamicResource AccentLightBrush}" BorderBrush="{DynamicResource AccentPrimaryBrush}" BorderThickness="1" CornerRadius="6" Padding="6,2" Margin="0,0,12,0" VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding AppVersionShortText, FallbackValue='v1.5.8'}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AccentPrimaryBrush}" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding AppVersionShortText, FallbackValue='v1.5.9'}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AccentPrimaryBrush}" VerticalAlignment="Center" />
                                 </Border>
 
                                 <!-- Status Pill with pulsing dot (Control Idle) -->
@@ -850,28 +850,13 @@
 
                                 <!-- MODO B: REUNIÓN COMPLETADA (Abierta desde Historial o finalizada) -->
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Visibility="{Binding IsOpenMeetingCompleted, Converter={StaticResource BoolToVisConverter}}">
-                                    <!-- Botón Reprocesar Audio (si tiene archivo de audio y no está en post-procesamiento) -->
-                                    <Button Style="{StaticResource SecondaryButton}" Height="36" Padding="12,0"
+                                    <!-- Botón Reprocesar Audio (abre modal dedicado de reprocesamiento) -->
+                                    <Button Style="{StaticResource SecondaryButton}" Height="36" Padding="14,0"
                                             Visibility="{Binding CanReprocessMeeting, Converter={StaticResource BoolToVisConverter}}"
-                                            ToolTip="{loc:Loc Meeting_Reprocess_Tooltip}" Click="ReprocessHistoricalMeetingButton_Click">
-                                        <Button.ContextMenu>
-                                            <ContextMenu>
-                                                <MenuItem Header="{loc:Loc Common_Auto_Recommended}" Command="{Binding ReprocessHistoricalMeetingCommand}" CommandParameter="Auto" />
-                                                <Separator />
-                                                <MenuItem Header="Qwen3-ASR 0.6B (~950 MB)" Command="{Binding ReprocessHistoricalMeetingCommand}" CommandParameter="Qwen3_06B" />
-                                                <MenuItem Header="Qwen3-ASR 1.7B (~2.4 GB)" Command="{Binding ReprocessHistoricalMeetingCommand}" CommandParameter="Qwen3_17B" />
-                                                <Separator />
-                                                <MenuItem Header="Whisper Tiny (~75 MB)" Command="{Binding ReprocessHistoricalMeetingCommand}" CommandParameter="Tiny" />
-                                                <MenuItem Header="Whisper Base (~145 MB)" Command="{Binding ReprocessHistoricalMeetingCommand}" CommandParameter="Base" />
-                                                <MenuItem Header="Whisper Small (~480 MB)" Command="{Binding ReprocessHistoricalMeetingCommand}" CommandParameter="Small" />
-                                                <MenuItem Header="Whisper Medium (~1.5 GB)" Command="{Binding ReprocessHistoricalMeetingCommand}" CommandParameter="Medium" />
-                                                <MenuItem Header="Whisper Large-v3 Turbo (~1.6 GB)" Command="{Binding ReprocessHistoricalMeetingCommand}" CommandParameter="LargeV3Turbo" />
-                                            </ContextMenu>
-                                        </Button.ContextMenu>
+                                            ToolTip="{loc:Loc Meeting_Reprocess_Tooltip}" Command="{Binding OpenReprocessModalCommand}">
                                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                                             <Path Data="{StaticResource GeoChip}" Stroke="#6366F1" StrokeThickness="1.3" Width="12" Height="12" Stretch="Uniform" Margin="0,0,6,0" VerticalAlignment="Center" />
                                             <TextBlock Text="{loc:Loc Meeting_Reprocess_Button}" VerticalAlignment="Center" FontWeight="Medium" />
-                                            <TextBlock Text=" ▾" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="4,0,0,0" />
                                         </StackPanel>
                                     </Button>
                                 </StackPanel>
@@ -1708,9 +1693,16 @@
                                                 <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
                                             <TextBlock Grid.Column="0" Text="{Binding Title}" FontSize="13" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" Margin="0,0,8,0" VerticalAlignment="Center" />
-                                            <Border Grid.Column="1" CornerRadius="4" Padding="5,1" Background="{DynamicResource BgSecondaryBrush}" Visibility="{Binding IsCompleted, Converter={StaticResource InverseBoolToVisConverter}}" VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding ProcessingStatusBadgeText}" FontSize="9" FontWeight="Bold" Foreground="{Binding ProcessingStatusColorHex}" />
-                                            </Border>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                                <Border CornerRadius="4" Padding="5,1" Background="{DynamicResource BgSecondaryBrush}" Visibility="{Binding IsCompleted, Converter={StaticResource InverseBoolToVisConverter}}" VerticalAlignment="Center" Margin="0,0,6,0">
+                                                    <TextBlock Text="{Binding ProcessingStatusBadgeText}" FontSize="9" FontWeight="Bold" Foreground="{Binding ProcessingStatusColorHex}" />
+                                                </Border>
+                                                <Button Style="{StaticResource TrashIconButton}"
+                                                        Command="{Binding DataContext.PromptDeleteMeetingCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                        CommandParameter="{Binding}"
+                                                        ToolTip="{loc:Loc History_Delete_Meeting_Tooltip}"
+                                                        VerticalAlignment="Center" />
+                                            </StackPanel>
                                         </Grid>
 
                                         <!-- Row 1: Date & Duration & Participants -->
@@ -3342,6 +3334,7 @@
                                                 <ColumnDefinition Width="Auto" />
                                                 <ColumnDefinition Width="*" />
                                                 <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
 
                                             <!-- Document Icon -->
@@ -3355,6 +3348,14 @@
                                                     Visibility="{Binding ModelUsed, Converter={StaticResource StringToVisConverter}}">
                                                 <TextBlock Text="{Binding ModelUsed}" FontSize="10.5" Foreground="{DynamicResource TextSecondaryBrush}" />
                                             </Border>
+                                            <!-- Botón individual para eliminar esta versión -->
+                                            <Button Grid.Column="3"
+                                                    Style="{StaticResource TrashIconButton}"
+                                                    Command="{Binding DataContext.PromptDeleteActaVersionCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                    CommandParameter="{Binding}"
+                                                    ToolTip="{loc:Loc Acta_History_Delete_Version_Tooltip}"
+                                                    VerticalAlignment="Center"
+                                                    Margin="6,0,0,0" />
                                         </Grid>
                                     </DataTemplate>
                                 </ListBox.ItemTemplate>
@@ -3526,6 +3527,17 @@
                                         <TextBlock Text="{loc:Loc AudioSettings_Language}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,6" />
                                         <ComboBox ItemsSource="{Binding AvailableLanguages}" SelectedItem="{Binding SelectedLanguage}" DisplayMemberPath="DisplayName" Height="38" ToolTip="{loc:Loc AudioSettings_Language_Tooltip}" />
                                     </StackPanel>
+
+                                    <!-- Ejecutar diarización al transcribir -->
+                                    <StackPanel Margin="0,14,0,0">
+                                        <CheckBox IsChecked="{Binding EnableDiarizationOnTranscription}"
+                                                  Content="{loc:Loc AudioSettings_EnableDiarization}"
+                                                  FontSize="12.5" FontWeight="SemiBold"
+                                                  Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,2" />
+                                        <TextBlock Text="{loc:Loc AudioSettings_EnableDiarization_Desc}"
+                                                   FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
+                                                   Margin="24,0,0,0" />
+                                    </StackPanel>
                                 </StackPanel>
                             </Border>
                         </StackPanel>
@@ -3667,6 +3679,25 @@
                                     </Border>
                                 </WrapPanel>
                             </Grid>
+                        </Border>
+
+                        <!-- Tipo de Procesamiento: Solo transcripción vs Transcripción + Diarización -->
+                        <Border Background="{DynamicResource CardItemBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="8" Padding="14,10" Margin="0,12,0,0">
+                            <StackPanel>
+                                <TextBlock Text="{loc:Loc Import_Audio_ProcessingType}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8" />
+                                <StackPanel Orientation="Horizontal">
+                                    <RadioButton Content="{loc:Loc Import_Audio_TranscriptionAndDiarization}"
+                                                 GroupName="ImportProcessingGroup"
+                                                 IsChecked="{Binding ImportWithDiarization}"
+                                                 FontSize="12.5" FontWeight="SemiBold"
+                                                 Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,20,0" />
+                                    <RadioButton Content="{loc:Loc Import_Audio_TranscriptionOnly}"
+                                                 GroupName="ImportProcessingGroup"
+                                                 IsChecked="{Binding ImportTranscriptionOnly}"
+                                                 FontSize="12.5" FontWeight="SemiBold"
+                                                 Foreground="{DynamicResource TextPrimaryBrush}" />
+                                </StackPanel>
+                            </StackPanel>
                         </Border>
 
                         <!-- Config preview note -->
@@ -3831,7 +3862,101 @@
         </Grid>
 
         <!-- ============================================================= -->
-        <!-- 9. MODAL OVERLAY: RECORDATORIO PREVIO A LA GRABACIÓN          -->
+        <!-- 9. MODAL OVERLAY: REPROCESAR AUDIO                            -->
+        <!-- ============================================================= -->
+        <Grid Grid.Row="0" Grid.RowSpan="3" Background="{DynamicResource ModalOverlayBrush}" Visibility="{Binding IsReprocessModalOpen, Converter={StaticResource BoolToVisConverter}}">
+            <Border Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="12" MaxWidth="520" Width="490" Padding="24" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="24" ShadowDepth="6" Direction="270" Opacity="0.25" Color="#000000" />
+                </Border.Effect>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Header -->
+                    <Grid Grid.Row="0" Margin="0,0,0,16">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Path Data="{StaticResource GeoChip}" Stroke="#6366F1" StrokeThickness="1.4" Width="14" Height="14" Stretch="Uniform" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="{loc:Loc Reprocess_Modal_Title}" FontSize="17" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                        </StackPanel>
+                        <Button Content="✕" HorizontalAlignment="Right" VerticalAlignment="Center" Command="{Binding CloseReprocessModalCommand}" Style="{StaticResource GhostButton}" FontSize="16" Height="30" Padding="6,0" />
+                    </Grid>
+
+                    <!-- Body -->
+                    <StackPanel Grid.Row="1">
+                        <TextBlock Text="{loc:Loc Reprocess_Modal_Desc}" FontSize="12.5" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,14" TextWrapping="Wrap" />
+
+                        <!-- Tipo de procesamiento -->
+                        <Border Background="{DynamicResource CardItemBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="8" Padding="14,12" Margin="0,0,0,14">
+                            <StackPanel>
+                                <TextBlock Text="{loc:Loc Reprocess_ProcessingType_Label}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,10" />
+
+                                <!-- Transcripción + diarización -->
+                                <RadioButton GroupName="ReprocessTypeGroup"
+                                             IsChecked="{Binding IsReprocessBothSelected}"
+                                             Margin="0,0,0,10">
+                                    <StackPanel>
+                                        <TextBlock Text="{loc:Loc Reprocess_Mode_Both}" FontSize="12.5" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                        <TextBlock Text="{loc:Loc Reprocess_Mode_Both_Desc}" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" Margin="0,2,0,0" />
+                                    </StackPanel>
+                                </RadioButton>
+
+                                <!-- Solo transcripción -->
+                                <RadioButton GroupName="ReprocessTypeGroup"
+                                             IsChecked="{Binding IsReprocessTranscriptionOnlySelected}"
+                                             Margin="0,0,0,10">
+                                    <StackPanel>
+                                        <TextBlock Text="{loc:Loc Reprocess_Mode_TranscriptionOnly}" FontSize="12.5" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                        <TextBlock Text="{loc:Loc Reprocess_Mode_TranscriptionOnly_Desc}" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" Margin="0,2,0,0" />
+                                    </StackPanel>
+                                </RadioButton>
+
+                                <!-- Solo diarización (deshabilitado si no hay transcripción previa) -->
+                                <RadioButton GroupName="ReprocessTypeGroup"
+                                             IsChecked="{Binding IsReprocessDiarizationOnlySelected}"
+                                             IsEnabled="{Binding CanReprocessDiarizationOnly}">
+                                    <StackPanel>
+                                        <TextBlock Text="{loc:Loc Reprocess_Mode_DiarizationOnly}" FontSize="12.5" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                        <TextBlock Text="{loc:Loc Reprocess_Mode_DiarizationOnly_Desc}" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" Margin="0,2,0,0" />
+                                    </StackPanel>
+                                </RadioButton>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Selector de Modelo de Transcripción (deshabilitado en Solo Diarización) -->
+                        <Border Background="{DynamicResource CardItemBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="8" Padding="14,12" Margin="0,0,0,14">
+                            <StackPanel IsEnabled="{Binding IsTranscriptionModelSelectionEnabled}">
+                                <TextBlock Text="{loc:Loc Reprocess_Model_Label}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,6" />
+                                <ComboBox ItemsSource="{Binding AvailableReprocessModels}"
+                                          SelectedItem="{Binding SelectedReprocessModel}"
+                                          DisplayMemberPath="DisplayName" Height="38" />
+                                <TextBlock Text="{Binding SelectedReprocessModel.Description}" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" Margin="0,4,0,0" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <!-- Footer -->
+                    <Grid Grid.Row="2" Margin="0,10,0,0">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button Content="{loc:Loc Common_Cancel}"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Command="{Binding CloseReprocessModalCommand}"
+                                    Height="36" Padding="18,0" Margin="0,0,8,0" />
+                            <Button Content="{loc:Loc Reprocess_Start_Button}"
+                                    Style="{StaticResource PrimaryButton}"
+                                    Command="{Binding ConfirmReprocessCommand}"
+                                    Height="36" Padding="20,0" />
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- ============================================================= -->
+        <!-- 10. MODAL OVERLAY: RECORDATORIO PREVIO A LA GRABACIÓN         -->
         <!-- ============================================================= -->
         <Grid Grid.Row="0" Grid.RowSpan="3" Background="{DynamicResource ModalOverlayBrush}" Visibility="{Binding IsRecordingNoticeModalOpen, Converter={StaticResource BoolToVisConverter}}">
             <Border Width="480" HorizontalAlignment="Center" VerticalAlignment="Center" Background="{DynamicResource BgSecondaryBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="12" Padding="24">
@@ -4124,5 +4249,173 @@
             </Border>
         </Grid>
 
+        <!-- ============================================================= -->
+        <!-- 12. MODAL OVERLAY: ELIMINAR REUNIÓN                           -->
+        <!-- ============================================================= -->
+        <Grid Grid.Row="0" Grid.RowSpan="3" Background="{DynamicResource ModalOverlayBrush}" Visibility="{Binding IsDeleteMeetingModalOpen, Converter={StaticResource BoolToVisConverter}}">
+            <Border Width="520" HorizontalAlignment="Center" VerticalAlignment="Center" Background="{DynamicResource BgSecondaryBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="14" Padding="24">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="30" ShadowDepth="8" Direction="270" Opacity="0.30" Color="#000000" />
+                </Border.Effect>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Header -->
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,16">
+                        <Border Width="40" Height="40" CornerRadius="10" Background="#FEE2E2" Margin="0,0,14,0" VerticalAlignment="Center">
+                            <Path Data="{StaticResource GeoTrash}" Fill="{DynamicResource DangerBrush}" Width="18" Height="18" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="{loc:Loc DeleteMeeting_Modal_Title}" FontSize="17" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="{loc:Loc DeleteMeeting_Modal_Prompt}" FontSize="12.5" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- Meeting Info Card -->
+                    <Border Grid.Row="1" Background="{DynamicResource CardItemBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="8" Padding="14,12" Margin="0,0,0,16">
+                        <StackPanel>
+                            <TextBlock Text="{Binding MeetingToDelete.Title}" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" Margin="0,0,0,4" />
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                <TextBlock Text="{Binding MeetingToDelete.FormattedDate}" FontSize="11.5" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,8,0" />
+                                <TextBlock Text="•" FontSize="11.5" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,8,0" />
+                                <TextBlock Text="{Binding MeetingToDelete.FormattedDuration, StringFormat='{}Duración: {0}'}" FontSize="11.5" FontFamily="{DynamicResource CodeFontFamily}" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,8,0" />
+                                <TextBlock Text="•" FontSize="11.5" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,8,0" />
+                                <TextBlock Text="{Binding MeetingToDelete.ParticipantsPreviewText}" FontSize="11.5" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+
+                            <Separator Background="{DynamicResource BorderSubtleBrush}" Height="1" Margin="0,6,0,8" />
+
+                            <!-- Warning message -->
+                            <TextBlock Text="{loc:Loc DeleteMeeting_Modal_Warning}" FontSize="12" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" LineHeight="17" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Deleting Progress / Error -->
+                    <StackPanel Grid.Row="2" Margin="0,0,0,16">
+                        <!-- Progress Indicator -->
+                        <Border Background="{DynamicResource AccentLightBrush}" BorderBrush="{DynamicResource AccentPrimaryBrush}" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,10" Visibility="{Binding IsDeletingMeeting, Converter={StaticResource BoolToVisConverter}}">
+                            <StackPanel>
+                                <TextBlock Text="{loc:Loc DeleteMeeting_Deleting_Status}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,6" />
+                                <ProgressBar IsIndeterminate="True" Height="4" Background="{DynamicResource BgTertiaryBrush}" Foreground="{DynamicResource DangerBrush}" BorderThickness="0" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Error Banner -->
+                        <Border Background="#FEE2E2" BorderBrush="{DynamicResource DangerBrush}" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,10" Visibility="{Binding DeleteMeetingErrorMessage, Converter={StaticResource StringToVisConverter}}">
+                            <TextBlock Text="{Binding DeleteMeetingErrorMessage}" FontSize="12" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" />
+                        </Border>
+                    </StackPanel>
+
+                    <!-- Actions Row -->
+                    <Grid Grid.Row="3">
+                        <Button Content="{loc:Loc Common_Cancel}" Style="{StaticResource GhostButton}" Command="{Binding CancelDeleteMeetingCommand}" IsEnabled="{Binding IsDeletingMeeting, Converter={StaticResource InverseBoolToVisConverter}}" HorizontalAlignment="Left" Height="38" Padding="16,0" FontSize="12.5" />
+                        <Button Content="{loc:Loc DeleteMeeting_Modal_Button}" Style="{StaticResource DangerButton}" Command="{Binding ConfirmDeleteMeetingCommand}" IsEnabled="{Binding IsDeletingMeeting, Converter={StaticResource InverseBoolToVisConverter}}" HorizontalAlignment="Right" Height="38" Padding="18,0" FontSize="12.5" FontWeight="SemiBold" />
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- ============================================================= -->
+        <!-- 13. MODAL OVERLAY: ELIMINAR VERSIÓN DEL ACTA                  -->
+        <!-- ============================================================= -->
+        <Grid Grid.Row="0" Grid.RowSpan="3" Background="{DynamicResource ModalOverlayBrush}" Visibility="{Binding IsDeleteActaVersionModalOpen, Converter={StaticResource BoolToVisConverter}}">
+            <Border Width="500" HorizontalAlignment="Center" VerticalAlignment="Center" Background="{DynamicResource BgSecondaryBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="14" Padding="24">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="30" ShadowDepth="8" Direction="270" Opacity="0.30" Color="#000000" />
+                </Border.Effect>
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Header -->
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,0,16">
+                        <Border Width="40" Height="40" CornerRadius="10" Background="#FEE2E2" Margin="0,0,14,0" VerticalAlignment="Center">
+                            <Path Data="{StaticResource GeoTrash}" Fill="{DynamicResource DangerBrush}" Width="18" Height="18" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock Text="{loc:Loc DeleteActaVersion_Modal_Title}" FontSize="17" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="{loc:Loc DeleteActaVersion_Modal_Prompt}" FontSize="12.5" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- Version Details Card -->
+                    <Border Grid.Row="1" Background="{DynamicResource CardItemBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="8" Padding="14,12" Margin="0,0,0,16">
+                        <StackPanel>
+                            <Grid Margin="0,0,0,6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="{loc:Loc DeleteActaVersion_Language_Label}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,8,0" />
+                                <TextBlock Grid.Column="1" Text="{Binding ActaVersionToDelete.FormattedLanguage}" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            </Grid>
+
+                            <Grid Margin="0,0,0,6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="{loc:Loc DeleteActaVersion_Detail_Label}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,8,0" />
+                                <TextBlock Grid.Column="1" Text="{Binding ActaVersionToDelete.FormattedDetailLevel}" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            </Grid>
+
+                            <Grid Margin="0,0,0,6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="{loc:Loc DeleteActaVersion_Date_Label}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,8,0" />
+                                <TextBlock Grid.Column="1" Text="{Binding ActaVersionToDelete.FormattedDate}" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            </Grid>
+
+                            <Grid Margin="0,0,0,6" Visibility="{Binding ActaVersionToDelete.ModelUsed, Converter={StaticResource StringToVisConverter}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="{loc:Loc DeleteActaVersion_Model_Label}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,8,0" />
+                                <TextBlock Grid.Column="1" Text="{Binding ActaVersionToDelete.ModelUsed}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+                            </Grid>
+
+                            <Separator Background="{DynamicResource BorderSubtleBrush}" Height="1" Margin="0,4,0,8" />
+
+                            <!-- Warning message -->
+                            <TextBlock Text="{loc:Loc DeleteActaVersion_Modal_Warning}" FontSize="12" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" LineHeight="17" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Deleting Progress / Error -->
+                    <StackPanel Grid.Row="2" Margin="0,0,0,16">
+                        <!-- Progress Indicator -->
+                        <Border Background="{DynamicResource AccentLightBrush}" BorderBrush="{DynamicResource AccentPrimaryBrush}" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,10" Visibility="{Binding IsDeletingActaVersion, Converter={StaticResource BoolToVisConverter}}">
+                            <StackPanel>
+                                <TextBlock Text="{loc:Loc DeleteActaVersion_Deleting_Status}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,6" />
+                                <ProgressBar IsIndeterminate="True" Height="4" Background="{DynamicResource BgTertiaryBrush}" Foreground="{DynamicResource DangerBrush}" BorderThickness="0" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Error Banner -->
+                        <Border Background="#FEE2E2" BorderBrush="{DynamicResource DangerBrush}" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,10" Visibility="{Binding DeleteActaVersionErrorMessage, Converter={StaticResource StringToVisConverter}}">
+                            <TextBlock Text="{Binding DeleteActaVersionErrorMessage}" FontSize="12" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" />
+                        </Border>
+                    </StackPanel>
+
+                    <!-- Actions Row -->
+                    <Grid Grid.Row="3">
+                        <Button Content="{loc:Loc Common_Cancel}" Style="{StaticResource GhostButton}" Command="{Binding CancelDeleteActaVersionCommand}" IsEnabled="{Binding IsDeletingActaVersion, Converter={StaticResource InverseBoolToVisConverter}}" HorizontalAlignment="Left" Height="38" Padding="16,0" FontSize="12.5" />
+                        <Button Content="{loc:Loc DeleteActaVersion_Modal_Button}" Style="{StaticResource DangerButton}" Command="{Binding ConfirmDeleteActaVersionCommand}" IsEnabled="{Binding IsDeletingActaVersion, Converter={StaticResource InverseBoolToVisConverter}}" HorizontalAlignment="Right" Height="38" Padding="18,0" FontSize="12.5" FontWeight="SemiBold" />
+                    </Grid>
+                </Grid>
+            </Border>
+        </Grid>
     </Grid>
 </Window>

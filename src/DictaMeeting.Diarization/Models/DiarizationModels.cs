@@ -63,6 +63,34 @@ public class SpeakerEmbedding
 }
 
 /// <summary>
+/// Desglose temporal detallado por etapas del pipeline de diarización para diagnóstico y optimización.
+/// </summary>
+public class DiarizationTimings
+{
+    public TimeSpan ModelInitializationTime { get; set; }
+    public TimeSpan AudioLoadingTime { get; set; }
+    public TimeSpan SegmentationInferenceTime { get; set; }
+    public TimeSpan FbankExtractionTime { get; set; }
+    public TimeSpan EmbeddingInferenceTime { get; set; }
+    public TimeSpan ClusteringAhcTime { get; set; }
+    public TimeSpan ClusteringVbxTime { get; set; }
+    public TimeSpan AssignmentAndReconstructionTime { get; set; }
+    public TimeSpan TotalTime { get; set; }
+    public bool IsWarmRun { get; set; }
+    public TimeSpan AudioDuration { get; set; }
+
+    public double RealTimeFactor => AudioDuration.TotalSeconds > 0 ? TotalTime.TotalSeconds / AudioDuration.TotalSeconds : 0.0;
+    public double SpeedupFactor => RealTimeFactor > 0 ? (1.0 / RealTimeFactor) : 0.0;
+
+    public override string ToString() =>
+        $"[Diarization Timings] Total: {TotalTime.TotalSeconds:F2}s (RTF: {RealTimeFactor:F3}x, {SpeedupFactor:F1}x realtime, Warm: {IsWarmRun}). " +
+        $"AudioLoad: {AudioLoadingTime.TotalMilliseconds:F0}ms, Seg: {SegmentationInferenceTime.TotalSeconds:F2}s, " +
+        $"FBank: {FbankExtractionTime.TotalSeconds:F2}s, Emb: {EmbeddingInferenceTime.TotalSeconds:F2}s, " +
+        $"AHC: {ClusteringAhcTime.TotalMilliseconds:F0}ms, VBx: {ClusteringVbxTime.TotalMilliseconds:F0}ms, " +
+        $"Assign: {AssignmentAndReconstructionTime.TotalMilliseconds:F0}ms.";
+}
+
+/// <summary>
 /// Opciones de configuración para el pipeline de diarización PyAnnote Community-1.
 /// </summary>
 public class DiarizationOptions
@@ -102,6 +130,11 @@ public class DiarizationOptions
     /// Tamaño de lote para inferencia de segmentación (por defecto 16).
     /// </summary>
     public int BatchSize { get; set; } = 16;
+
+    /// <summary>
+    /// Paso de avance en segundos para las ventanas deslizantes de segmentación (por defecto 1.0s, o 2.0s para aceleración en CPU).
+    /// </summary>
+    public double StepSeconds { get; set; } = 1.0;
 }
 
 /// <summary>
@@ -148,6 +181,11 @@ public class DiarizationResult
     /// Execution Provider de ONNX Runtime empleado ("CPUExecutionProvider", "CUDAExecutionProvider", etc.).
     /// </summary>
     public string ExecutionProvider { get; set; } = "CPU";
+
+    /// <summary>
+    /// Desglose temporal detallado por etapas de procesamiento.
+    /// </summary>
+    public DiarizationTimings Timings { get; set; } = new();
 }
 
 /// <summary>

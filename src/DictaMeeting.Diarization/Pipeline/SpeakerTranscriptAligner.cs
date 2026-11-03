@@ -23,22 +23,12 @@ public sealed class SpeakerTranscriptAligner : ISpeakerTranscriptAligner
     public TranscriptAlignmentResult Align(
         IReadOnlyList<TranscriptSegment> asrSegments,
         DiarizationResult diarizationResult,
-        IReadOnlyList<Speaker>? existingParticipants = null)
+        IReadOnlyList<Speaker>? existingParticipants = null,
+        bool preserveExistingSegments = false,
+        IReadOnlyDictionary<string, float[]>? existingCentroids = null)
     {
         var result = new TranscriptAlignmentResult();
-        var displayNameMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-        // 1. Mapeo base de participantes existentes previamente asignados
-        if (existingParticipants != null)
-        {
-            foreach (var participant in existingParticipants)
-            {
-                if (!string.IsNullOrWhiteSpace(participant.Id) && !string.IsNullOrWhiteSpace(participant.DisplayName))
-                {
-                    displayNameMap[participant.Id] = participant.DisplayName;
-                }
-            }
-        }
+        var displayNameMap = BuildSpeakerMapping(asrSegments, diarizationResult, existingParticipants, existingCentroids);
 
         // Si no hay segmentos de diarización exclusiva, mantener hablantes actuales o SPEAKER_00
         var exclusiveSpans = diarizationResult?.ExclusiveSegments ?? Array.Empty<ExclusiveSpeakerSegment>();
@@ -98,8 +88,9 @@ public sealed class SpeakerTranscriptAligner : ISpeakerTranscriptAligner
                 }
             }
 
-            // 2.A Si hay 2 o más interlocutores con solapamiento relevante y el texto contiene diálogo o múltiples oraciones
-            if (speakerOverlapDurations.Count >= 2 && asrDuration >= 1.5)
+            // 2.A Si no estamos en modo no destructivo, y hay 2 o más interlocutores con solapamiento relevante
+            // y el texto contiene diálogo o múltiples oraciones, dividir el segmento
+            if (!preserveExistingSegments && speakerOverlapDurations.Count >= 2 && asrDuration >= 1.5)
             {
                 var sentenceParts = SplitIntoSentenceOrDialogueParts(asr.Text);
                 if (sentenceParts.Count >= 2)
@@ -188,6 +179,229 @@ public sealed class SpeakerTranscriptAligner : ISpeakerTranscriptAligner
         result.ReconciledSegments = reconciledList;
         result.SpeakerIdToDisplayNameMap = displayNameMap;
         return result;
+    }
+
+    /// <summary>
+    /// Construye el mapeo de nombres de interlocutores, preservando de forma conservadora
+    /// y fiable los nombres asignados previamente por el usuario basándose en similitud acústica y solapamiento temporal.
+    /// </summary>
+    private Dictionary<string, string> BuildSpeakerMapping(
+        IReadOnlyList<TranscriptSegment> asrSegments,
+        DiarizationResult? diarizationResult,
+        IReadOnlyList<Speaker>? existingParticipants,
+        IReadOnlyDictionary<string, float[]>? existingCentroids)
+    {
+        var displayNameMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        if (existingParticipants == null || existingParticipants.Count == 0)
+        {
+            return displayNameMap;
+        }
+
+        // Identificar interlocutores previos con nombres no técnicos asignados por el usuario
+        var customOldParticipants = existingParticipants
+            .Where(p => !string.IsNullOrWhiteSpace(p.Id) &&
+                        !string.IsNullOrWhiteSpace(p.DisplayName) &&
+                        !Meeting.IsTechnicalSpeakerName(p.DisplayName))
+            .ToList();
+
+        var newSpeakerIds = (diarizationResult?.ExclusiveSegments?
+            .Select(s => s.SpeakerId)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList() ?? new List<string>());
+
+        // Si no hay nombres personalizados previos o no hay nuevos speakers, usar mapeo directo por ID
+        if (customOldParticipants.Count == 0 || newSpeakerIds.Count == 0)
+        {
+            foreach (var p in existingParticipants)
+            {
+                if (!string.IsNullOrWhiteSpace(p.Id) && !string.IsNullOrWhiteSpace(p.DisplayName))
+                {
+                    displayNameMap[p.Id] = p.DisplayName;
+                }
+            }
+            return displayNameMap;
+        }
+
+        // Comprobar si se trata de una re-diarización sobre segmentos previamente diarizados
+        // o si disponemos de centroides acústicos previos para re-identificación.
+        var distinctOldSpeakerIds = asrSegments
+            .Select(s => s.SpeakerId)
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        bool hasCentroids = existingCentroids != null && existingCentroids.Count > 0;
+        bool isReDiarization = hasCentroids || distinctOldSpeakerIds.Count >= 2;
+
+        if (!isReDiarization)
+        {
+            // Primera diarización sobre segmentos en vivo o brutos de ASR: mapeo directo
+            foreach (var p in existingParticipants)
+            {
+                if (!string.IsNullOrWhiteSpace(p.Id) && !string.IsNullOrWhiteSpace(p.DisplayName))
+                {
+                    displayNameMap[p.Id] = p.DisplayName;
+                }
+            }
+            return displayNameMap;
+        }
+
+        // Evaluar correspondencia para cada hablante antiguo personalizado
+        var assignedNewSpeakers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var oldSpeaker in customOldParticipants)
+        {
+            string? bestMatchNewSpeaker = null;
+            double bestScore = 0.0;
+            double secondBestScore = 0.0;
+
+            // Calcular duración total del hablante antiguo en los segmentos de ASR
+            var oldSegments = asrSegments
+                .Where(s => string.Equals(s.SpeakerId, oldSpeaker.Id, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            double totalOldDuration = oldSegments.Sum(s => Math.Max(0.01, (s.EndTime - s.StartTime).TotalSeconds));
+
+            foreach (var newSpeaker in newSpeakerIds)
+            {
+                if (assignedNewSpeakers.Contains(newSpeaker)) continue;
+
+                double score = 0.0;
+                bool hasAcoustic = false;
+                double cosineSim = 0.0;
+
+                // 1. Similitud acústica de centroides si están disponibles
+                if (existingCentroids != null &&
+                    existingCentroids.TryGetValue(oldSpeaker.Id, out var oldVec) &&
+                    diarizationResult?.SpeakerCentroids != null &&
+                    diarizationResult.SpeakerCentroids.TryGetValue(newSpeaker, out var newVec))
+                {
+                    cosineSim = ComputeCosineSimilarity(oldVec, newVec);
+                    hasAcoustic = true;
+                }
+
+                // 2. Solapamiento temporal (IoU y Recall)
+                double overlapSec = 0.0;
+                var newSpans = diarizationResult?.ExclusiveSegments?
+                    .Where(s => string.Equals(s.SpeakerId, newSpeaker, StringComparison.OrdinalIgnoreCase))
+                    .ToList() ?? new List<ExclusiveSpeakerSegment>();
+                double totalNewDuration = newSpans.Sum(s => Math.Max(0.01, (s.EndTime - s.StartTime).TotalSeconds));
+
+                if (totalOldDuration > 0 && totalNewDuration > 0)
+                {
+                    foreach (var oSeg in oldSegments)
+                    {
+                        double oStart = oSeg.StartTime.TotalSeconds;
+                        double oEnd = oSeg.EndTime.TotalSeconds;
+                        foreach (var nSeg in newSpans)
+                        {
+                            double overlap = Math.Max(0.0, Math.Min(oEnd, nSeg.EndTime.TotalSeconds) - Math.Max(oStart, nSeg.StartTime.TotalSeconds));
+                            overlapSec += overlap;
+                        }
+                    }
+                }
+
+                double recall = totalOldDuration > 0 ? overlapSec / totalOldDuration : 0.0;
+                double unionSec = totalOldDuration + totalNewDuration - overlapSec;
+                double iou = unionSec > 0 ? overlapSec / unionSec : 0.0;
+
+                // Calcular puntuación combinada
+                if (hasAcoustic)
+                {
+                    if (iou > 0.0)
+                    {
+                        score = (0.55 * Math.Max(0.0, cosineSim)) + (0.45 * iou);
+                    }
+                    else
+                    {
+                        score = Math.Max(0.0, cosineSim);
+                    }
+                }
+                else
+                {
+                    score = iou;
+                }
+
+                // Verificar si supera los umbrales de fiabilidad
+                bool isReliable;
+                if (hasAcoustic && iou > 0.15)
+                {
+                    isReliable = cosineSim >= 0.70 || score >= 0.55;
+                }
+                else if (hasAcoustic)
+                {
+                    isReliable = cosineSim >= 0.78;
+                }
+                else
+                {
+                    // Solo temporal: requerir solapamiento relevante (> 40% IoU y > 50% recall)
+                    isReliable = iou >= 0.40 && recall >= 0.50;
+                }
+
+                if (isReliable && score > bestScore)
+                {
+                    secondBestScore = bestScore;
+                    bestScore = score;
+                    bestMatchNewSpeaker = newSpeaker;
+                }
+                else if (score > secondBestScore)
+                {
+                    secondBestScore = score;
+                }
+            }
+
+            // Regla de margen para evitar ambigüedades:
+            // Debe superar holgadamente al segundo mejor candidato si hay más de uno
+            bool clearMargin = (bestScore - secondBestScore) >= 0.12 || secondBestScore < 0.30;
+            if (bestMatchNewSpeaker != null && clearMargin)
+            {
+                _logger?.LogInformation(
+                    "Preservando identidad de participante '{DisplayName}' para hablante técnico '{NewSpeaker}' (Score: {Score:F2})",
+                    oldSpeaker.DisplayName, bestMatchNewSpeaker, bestScore);
+                displayNameMap[bestMatchNewSpeaker] = oldSpeaker.DisplayName;
+                assignedNewSpeakers.Add(bestMatchNewSpeaker);
+            }
+            else
+            {
+                _logger?.LogWarning(
+                    "No se pudo asociar de forma fiable la identidad previa '{DisplayName}' a ningún hablante detectado. Se mantiene sin transferir.",
+                    oldSpeaker.DisplayName);
+            }
+        }
+
+        // Asignar los demás hablantes existentes que no hayan colisionado
+        if (existingParticipants != null)
+        {
+            foreach (var p in existingParticipants)
+            {
+                if (!string.IsNullOrWhiteSpace(p.Id) && !displayNameMap.ContainsKey(p.Id))
+                {
+                    displayNameMap[p.Id] = p.DisplayName;
+                }
+            }
+        }
+
+        return displayNameMap;
+    }
+
+    private static double ComputeCosineSimilarity(float[] a, float[] b)
+    {
+        if (a == null || b == null || a.Length == 0 || b.Length == 0 || a.Length != b.Length)
+            return 0.0;
+
+        double dot = 0.0;
+        double normA = 0.0;
+        double normB = 0.0;
+
+        for (int i = 0; i < a.Length; i++)
+        {
+            dot += a[i] * b[i];
+            normA += a[i] * a[i];
+            normB += b[i] * b[i];
+        }
+
+        double denom = Math.Sqrt(normA) * Math.Sqrt(normB);
+        return denom > 1e-9 ? dot / denom : 0.0;
     }
 
     private static List<string> SplitIntoSentenceOrDialogueParts(string text)

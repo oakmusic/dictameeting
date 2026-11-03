@@ -65,15 +65,18 @@ public sealed class Community1DiarizationPipeline : IDisposable
         _pldaTransformer = PldaTransformer.LoadFromFile(pldaPath);
 
         // Configuración de proveedores de ONNX Runtime con detección inteligente y fallback a CPU
+        int threadCount = Math.Clamp(Environment.ProcessorCount / 4, 2, 8);
         var segOptions = new SessionOptions
         {
-            IntraOpNumThreads = Math.Max(1, Environment.ProcessorCount / 2),
-            GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL
+            IntraOpNumThreads = threadCount,
+            GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL,
+            ExecutionMode = ExecutionMode.ORT_SEQUENTIAL
         };
         var embOptions = new SessionOptions
         {
-            IntraOpNumThreads = Math.Max(1, Environment.ProcessorCount / 2),
-            GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL
+            IntraOpNumThreads = threadCount,
+            GraphOptimizationLevel = GraphOptimizationLevel.ORT_ENABLE_ALL,
+            ExecutionMode = ExecutionMode.ORT_SEQUENTIAL
         };
 
         string providerUsed = "CPUExecutionProvider";
@@ -141,21 +144,27 @@ public sealed class Community1DiarizationPipeline : IDisposable
         progress?.Report(0.05);
         cancellationToken.ThrowIfCancellationRequested();
 
-        // 1. Fragmentación en ventanas deslizantes de 10s con paso de 1s
-        var chunkStarts = GenerateChunkStarts(totalSamples);
+        // 1. Fragmentación en ventanas deslizantes de 10s con paso configurado
+        double stepSec = opt.StepSeconds > 0 ? opt.StepSeconds : ChunkStepSec;
+        int stepSamples = (int)(stepSec * SampleRate);
+        var chunkStarts = GenerateChunkStarts(totalSamples, stepSamples);
         int numChunks = chunkStarts.Count;
 
-        _logger?.LogInformation("Iniciando Diarización Community-1: {Duration:F1}s de audio, {Chunks} ventanas de 10s.",
-            audioDurationSec, numChunks);
+        _logger?.LogInformation("Iniciando Diarización Community-1: {Duration:F1}s de audio, {Chunks} ventanas de 10s (paso {Step:F1}s).",
+            audioDurationSec, numChunks, stepSec);
 
         // 2. Inferencia de segmentación: [numChunks, 589, 3]
+        var segSw = System.Diagnostics.Stopwatch.StartNew();
         float[,,] segmentations = RunSegmentationBatched(samples, chunkStarts, opt.BatchSize, progress, cancellationToken);
+        segSw.Stop();
         progress?.Report(0.40);
         cancellationToken.ThrowIfCancellationRequested();
 
         // 3. Extracción de Kaldi FBank y embeddings con enmascaramiento local
         // Cada chunk produce hasta 3 embeddings (uno por hablante local activo)
-        var (embeddings, activeMask) = ExtractChunkEmbeddings(samples, chunkStarts, segmentations, opt.BatchSize, progress, cancellationToken);
+        var embExtractResult = ExtractChunkEmbeddings(samples, chunkStarts, segmentations, opt.BatchSize, progress, cancellationToken);
+        var embeddings = embExtractResult.Embeddings;
+        var activeMask = embExtractResult.ActiveMask;
         progress?.Report(0.70);
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -188,6 +197,9 @@ public sealed class Community1DiarizationPipeline : IDisposable
         // 5. Clustering PLDA + AHC + VBx
         double[][] globalCentroids;
         int[,] chunkSpeakerAssignments; // [numChunks, NumLocalSpeakers] -> globalClusterIndex (-1 si inactivo)
+        TimeSpan ahcTime = TimeSpan.Zero;
+        TimeSpan vbxTime = TimeSpan.Zero;
+        TimeSpan assignmentTime = TimeSpan.Zero;
 
         if (trainEmbeddings.Count < 2)
         {
@@ -221,9 +233,12 @@ public sealed class Community1DiarizationPipeline : IDisposable
             }
 
             // B. Inicialización con AHC (corte a 0.6)
+            var ahcSw = System.Diagnostics.Stopwatch.StartNew();
             int[] ahcLabels = AhcClusterer.Cluster(trainNorm, threshold: 0.6);
+            ahcSw.Stop();
 
             // C. Transformación PLDA a 128 dimensiones
+            var vbxSw = System.Diagnostics.Stopwatch.StartNew();
             double[,] trainPlda = _pldaTransformer.TransformBatch(trainArray);
 
             // D. VBx Clustering
@@ -238,23 +253,32 @@ public sealed class Community1DiarizationPipeline : IDisposable
                 _logger?.LogInformation("Forzando recuento de interlocutores a K={ForcedK} (detectado VBx={DetectedK}).", forcedK, detectedK);
                 globalCentroids = VbxClusterer.KMeansCluster(trainArray, forcedK);
             }
+            vbxSw.Stop();
 
             // E. Asignación óptima de cada interlocutor local de cada chunk al centroide global con el algoritmo Húngaro
+            var assignSw = System.Diagnostics.Stopwatch.StartNew();
             chunkSpeakerAssignments = AssignChunksToGlobalCentroids(embeddings, segmentations, globalCentroids);
+            assignmentTime = assignSw.Elapsed;
+            ahcTime = ahcSw.Elapsed;
+            vbxTime = vbxSw.Elapsed;
         }
 
         progress?.Report(0.85);
         cancellationToken.ThrowIfCancellationRequested();
 
         // 6. Reconstrucción temporal de pistas y Diarización Exclusiva
+        var reconstructSw = System.Diagnostics.Stopwatch.StartNew();
         var (regularSpans, exclusiveSpans) = ReconstructDiarizationSpans(
             segmentations,
             chunkSpeakerAssignments,
             globalCentroids.Length,
-            totalSamples);
+            totalSamples,
+            chunkStarts);
 
         // 7. Suavizado temporal de los segmentos exclusivos
         var smoothedExclusive = _smoothingFilter.Smooth(exclusiveSpans, opt.MinSegmentDuration, opt.MergeGap);
+        reconstructSw.Stop();
+        assignmentTime += reconstructSw.Elapsed;
 
         sw.Stop();
         _logger?.LogInformation("Diarización completada en {Elapsed:F2}s: {Speakers} interlocutores, {Regular} segmentos estándar, {Exclusive} exclusivos.",
@@ -269,6 +293,20 @@ public sealed class Community1DiarizationPipeline : IDisposable
 
         progress?.Report(1.0);
 
+        var timings = new DiarizationTimings
+        {
+            AudioDuration = TimeSpan.FromSeconds(audioDurationSec),
+            TotalTime = sw.Elapsed,
+            SegmentationInferenceTime = segSw.Elapsed,
+            FbankExtractionTime = embExtractResult.FbankTime,
+            EmbeddingInferenceTime = embExtractResult.EmbeddingTime,
+            ClusteringAhcTime = ahcTime,
+            ClusteringVbxTime = vbxTime,
+            AssignmentAndReconstructionTime = assignmentTime
+        };
+
+        _logger?.LogInformation("{Timings}", timings);
+
         return new DiarizationResult
         {
             RegularSegments = regularSpans,
@@ -277,11 +315,12 @@ public sealed class Community1DiarizationPipeline : IDisposable
             DetectedSpeakerCount = globalCentroids.Length,
             AudioDuration = TimeSpan.FromSeconds(audioDurationSec),
             ExecutionTime = sw.Elapsed,
-            ExecutionProvider = _executionProvider
+            ExecutionProvider = _executionProvider,
+            Timings = timings
         };
     }
 
-    private static List<int> GenerateChunkStarts(int totalSamples)
+    private static List<int> GenerateChunkStarts(int totalSamples, int stepSamples)
     {
         var starts = new List<int>();
         int current = 0;
@@ -289,10 +328,10 @@ public sealed class Community1DiarizationPipeline : IDisposable
         while (current + ChunkSamples <= totalSamples)
         {
             starts.Add(current);
-            current += ChunkStepSamples;
+            current += stepSamples;
         }
 
-        if (starts.Count == 0 || (totalSamples > ChunkSamples && (totalSamples - ChunkSamples) % ChunkStepSamples != 0))
+        if (starts.Count == 0 || (totalSamples > ChunkSamples && (totalSamples - ChunkSamples) % stepSamples != 0))
         {
             if (starts.Count == 0 || starts[^1] != current)
             {
@@ -354,7 +393,7 @@ public sealed class Community1DiarizationPipeline : IDisposable
         return result;
     }
 
-    private (float[,,] Embeddings, bool[,] ActiveMask) ExtractChunkEmbeddings(
+    private (float[,,] Embeddings, bool[,] ActiveMask, TimeSpan FbankTime, TimeSpan EmbeddingTime) ExtractChunkEmbeddings(
         float[] waveform,
         List<int> chunkStarts,
         float[,,] segmentations,
@@ -366,28 +405,18 @@ public sealed class Community1DiarizationPipeline : IDisposable
         float[,,] embeddings = new float[numChunks, NumLocalSpeakers, EmbeddingDimension];
         bool[,] activeMask = new bool[numChunks, NumLocalSpeakers];
 
-        // 1. Extraer FBank para cada chunk de 10s
+        // 1. Extraer FBank globalmente sobre toda la forma de onda en paralelo y reutilizar frames con CMVN
+        var fbankSw = System.Diagnostics.Stopwatch.StartNew();
+        float[,] globalSpectrogram = _fbankExtractor.ComputeRawLogMelSpectrogram(waveform);
         float[][,] chunkFbanks = new float[numChunks][,];
-        float[] chunkBuffer = ArrayPool<float>.Shared.Rent(ChunkSamples);
-        try
+
+        Parallel.For(0, numChunks, c =>
         {
-            Span<float> chunkWaveform = chunkBuffer.AsSpan(0, ChunkSamples);
-
-            for (int c = 0; c < numChunks; c++)
-            {
-                int start = chunkStarts[c];
-                int copyLen = Math.Min(ChunkSamples, waveform.Length - start);
-
-                chunkWaveform.Clear();
-                for (int s = 0; s < copyLen; s++) chunkWaveform[s] = waveform[start + s];
-
-                chunkFbanks[c] = _fbankExtractor.ComputeFbank(chunkWaveform);
-            }
-        }
-        finally
-        {
-            ArrayPool<float>.Shared.Return(chunkBuffer);
-        }
+            int startSample = chunkStarts[c];
+            int startFrame = startSample / KaldiFbankExtractor.FrameShiftSamples;
+            chunkFbanks[c] = KaldiFbankExtractor.SliceAndApplyCmvn(globalSpectrogram, startFrame, FbankFramesPerChunk);
+        });
+        fbankSw.Stop();
 
         // 2. Construir máscaras de enmascaramiento local de interlocutores
         var candidateChunks = new List<(int ChunkIdx, int SpkIdx)>();
@@ -398,10 +427,12 @@ public sealed class Community1DiarizationPipeline : IDisposable
             {
                 float activeFramesSum = 0.0f;
                 float cleanFramesSum = 0.0f;
+                float totalSpkEnergy = 0.0f;
 
                 for (int f = 0; f < NumSegmentationFrames; f++)
                 {
                     float spkVal = segmentations[c, f, s];
+                    totalSpkEnergy += spkVal;
                     float totalFrameActive = 0.0f;
                     for (int other = 0; other < NumLocalSpeakers; other++) totalFrameActive += segmentations[c, f, other];
 
@@ -421,15 +452,21 @@ public sealed class Community1DiarizationPipeline : IDisposable
                     activeMask[c, s] = true;
                 }
 
-                candidateChunks.Add((c, s));
+                // Sólo calcular embedding si hay actividad de voz medible (al menos 3 frames activos o candidato limpio)
+                if (activeFramesSum >= 3.0f || activeMask[c, s])
+                {
+                    candidateChunks.Add((c, s));
+                }
             }
         }
 
         // 3. Inferencia de embeddings por lotes
-        for (int i = 0; i < candidateChunks.Count; i += batchSize)
+        var embSw = System.Diagnostics.Stopwatch.StartNew();
+        int effectiveBatchSize = Math.Max(batchSize, 32);
+        for (int i = 0; i < candidateChunks.Count; i += effectiveBatchSize)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            int currentBatch = Math.Min(batchSize, candidateChunks.Count - i);
+            int currentBatch = Math.Min(effectiveBatchSize, candidateChunks.Count - i);
 
             var fbankTensor = new DenseTensor<float>(new[] { currentBatch, FbankFramesPerChunk, KaldiFbankExtractor.NumMelBins });
             var maskTensor = new DenseTensor<float>(new[] { currentBatch, NumSegmentationFrames });
@@ -476,8 +513,9 @@ public sealed class Community1DiarizationPipeline : IDisposable
             double p = 0.40 + 0.30 * ((double)(i + currentBatch) / candidateChunks.Count);
             progress?.Report(p);
         }
+        embSw.Stop();
 
-        return (embeddings, activeMask);
+        return (embeddings, activeMask, fbankSw.Elapsed, embSw.Elapsed);
     }
 
     private int[,] AssignChunksToGlobalCentroids(
@@ -498,7 +536,7 @@ public sealed class Community1DiarizationPipeline : IDisposable
                 float spkEnergy = 0.0f;
                 for (int f = 0; f < NumSegmentationFrames; f++) spkEnergy += segmentations[c, f, s];
 
-                if (spkEnergy <= 0.01f)
+                if (spkEnergy <= 0.05f)
                 {
                     for (int k = 0; k < numCentroids; k++) costMatrix[s, k] = -100.0;
                     continue;
@@ -540,7 +578,8 @@ public sealed class Community1DiarizationPipeline : IDisposable
         float[,,] segmentations,
         int[,] chunkSpeakerAssignments,
         int numGlobalSpeakers,
-        int totalSamples)
+        int totalSamples,
+        List<int> chunkStarts)
     {
         double audioDurationSec = (double)totalSamples / SampleRate;
         int totalFrames = (int)Math.Ceiling(audioDurationSec / FrameStepSec) + 1;
@@ -554,7 +593,7 @@ public sealed class Community1DiarizationPipeline : IDisposable
 
         for (int c = 0; c < numChunks; c++)
         {
-            double chunkStartSec = c * ChunkStepSec;
+            double chunkStartSec = chunkStarts[c] / (double)SampleRate;
             int startFrame = (int)Math.Round(chunkStartSec / FrameStepSec);
 
             for (int f = 0; f < NumSegmentationFrames; f++)

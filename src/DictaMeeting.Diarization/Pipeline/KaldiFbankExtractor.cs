@@ -130,6 +130,110 @@ public sealed class KaldiFbankExtractor
     }
 
     /// <summary>
+    /// Computa los frames de energía log-mel brutos para toda la forma de onda de 16 kHz en paralelo por CPU.
+    /// Retorna una matriz float[total_frames, 80].
+    /// Evita recalcular FFT y bancos Mel repetidamente en ventanas solapadas.
+    /// </summary>
+    public float[,] ComputeRawLogMelSpectrogram(ReadOnlySpan<float> waveform)
+    {
+        int numSamples = waveform.Length;
+        if (numSamples < FrameLengthSamples)
+        {
+            return new float[0, NumMelBins];
+        }
+
+        int numFrames = (numSamples - FrameLengthSamples) / FrameShiftSamples + 1;
+        float[,] spectrogram = new float[numFrames, NumMelBins];
+
+        float[] waveArray = waveform.ToArray();
+        const float scale = 32768.0f;
+        const float epsilon = 1.1920929e-7f;
+
+        Parallel.For(0, numFrames, () => (
+            Real: new float[FftSize],
+            Imag: new float[FftSize],
+            Power: new float[NumSpectrumBins]
+        ),
+        (t, loopState, localBuffers) =>
+        {
+            int startSample = t * FrameShiftSamples;
+            Array.Clear(localBuffers.Real, 0, FftSize);
+            Array.Clear(localBuffers.Imag, 0, FftSize);
+
+            int copyCount = Math.Min(FrameLengthSamples, waveArray.Length - startSample);
+            for (int i = 0; i < copyCount; i++)
+            {
+                localBuffers.Real[i] = waveArray[startSample + i] * scale * _window[i];
+            }
+
+            ComputeFft512(localBuffers.Real, localBuffers.Imag);
+
+            for (int k = 0; k < NumSpectrumBins; k++)
+            {
+                float r = localBuffers.Real[k];
+                float im = localBuffers.Imag[k];
+                localBuffers.Power[k] = r * r + im * im;
+            }
+
+            for (int m = 0; m < NumMelBins; m++)
+            {
+                float[] weights = _melFilterbank[m];
+                float melEnergy = 0.0f;
+                for (int k = 0; k < NumSpectrumBins; k++)
+                {
+                    float w = weights[k];
+                    if (w > 0.0f) melEnergy += localBuffers.Power[k] * w;
+                }
+                spectrogram[t, m] = MathF.Log(MathF.Max(melEnergy, epsilon));
+            }
+
+            return localBuffers;
+        },
+        _ => { });
+
+        return spectrogram;
+    }
+
+    /// <summary>
+    /// Extrae un fragmento de frames log-mel del espectrograma global y aplica Cepstral Mean Normalization (CMVN)
+    /// localmente para el chunk especificado.
+    /// </summary>
+    public static float[,] SliceAndApplyCmvn(float[,] globalSpectrogram, int startFrame, int numFrames = 998)
+    {
+        int totalFrames = globalSpectrogram.GetLength(0);
+        int availableFrames = Math.Max(0, totalFrames - startFrame);
+        int framesToTake = Math.Min(numFrames, availableFrames);
+
+        float[,] chunkFbank = new float[numFrames, NumMelBins];
+
+        for (int t = 0; t < framesToTake; t++)
+        {
+            int srcT = startFrame + t;
+            for (int m = 0; m < NumMelBins; m++)
+            {
+                chunkFbank[t, m] = globalSpectrogram[srcT, m];
+            }
+        }
+
+        // CMVN por canal Mel en el chunk
+        for (int m = 0; m < NumMelBins; m++)
+        {
+            float sum = 0.0f;
+            for (int t = 0; t < framesToTake; t++)
+            {
+                sum += chunkFbank[t, m];
+            }
+            float mean = framesToTake > 0 ? sum / framesToTake : 0.0f;
+            for (int t = 0; t < numFrames; t++)
+            {
+                chunkFbank[t, m] -= mean;
+            }
+        }
+
+        return chunkFbank;
+    }
+
+    /// <summary>
     /// Construye el banco de 80 filtros triangulares Mel según la fórmula exacta de Kaldi.
     /// mel(f) = 1127 * ln(1 + f / 700)
     /// </summary>
