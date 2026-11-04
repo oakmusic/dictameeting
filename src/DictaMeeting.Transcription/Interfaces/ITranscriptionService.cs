@@ -14,4 +14,9 @@ public interface ITranscriptionService : IDisposable
     Task<IReadOnlyList<TranscriptSegment>> TranscribeAudioFileAsync(string audioFilePath, IProgress<double>? progress = null, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<TranscriptSegment>> TranscribeAudioFileAsync(string audioFilePath, ModelSize modelSize, LanguageMode language, IProgress<double>? progress = null, CancellationToken cancellationToken = default);
     Task<TranscriptSegment?> TranscribeAudioChunkAsync(byte[] pcmAudioData, TimeSpan offset, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Descarga el modelo ASR residente de memoria para liberar recursos si no hay operaciones en curso.
+    /// </summary>
+    void UnloadModel() { }
 }

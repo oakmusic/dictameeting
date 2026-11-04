@@ -1197,7 +1197,65 @@ public partial class MainViewModel : ObservableObject
                 }
             }
 
-            // 5. Lanzar procesamiento final en segundo plano según opción seleccionada
+            // 5. Validar disponibilidad de modelos ASR sin descarga automática
+            var availableAsr = _modelManager.GetAvailableModels();
+            if (!availableAsr.Any(m => m.IsDownloaded))
+            {
+                if (Application.Current != null)
+                {
+                    var result = MessageBox.Show(
+                        "No hay ningún modelo ASR instalado en el sistema.\n\n" +
+                        "Requisito mínimo: disponer de al menos un modelo ASR instalado para poder transcribir audio.\n\n" +
+                        "¿Desea abrir el Gestor de Modelos para descargarlo?",
+                        "Modelo ASR no instalado",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Warning);
+
+                    if (result == MessageBoxResult.Yes)
+                    {
+                        OpenModelManager();
+                    }
+                }
+                return;
+            }
+
+            if (!string.IsNullOrEmpty(finalModelToUse) && Enum.TryParse<ModelSize>(finalModelToUse, true, out var reqSize))
+            {
+                if (!_modelManager.IsModelDownloaded(reqSize))
+                {
+                    var alt = availableAsr.FirstOrDefault(m => m.IsDownloaded);
+                    if (alt != null)
+                    {
+                        if (Application.Current == null)
+                        {
+                            finalModelToUse = alt.Size.ToString();
+                        }
+                        else
+                        {
+                            var result = MessageBox.Show(
+                                $"El modelo seleccionado '{reqSize}' no está instalado.\n\n" +
+                                $"Está disponible el modelo alternativo '{alt.Name}'.\n\n" +
+                                $"¿Desea utilizar '{alt.Name}' para transcribir el audio importado?\n\n" +
+                                $"(Seleccione 'No' para abrir el Gestor de Modelos)",
+                                "Modelo no instalado",
+                                MessageBoxButton.YesNo,
+                                MessageBoxImage.Question);
+
+                            if (result == MessageBoxResult.Yes)
+                            {
+                                finalModelToUse = alt.Size.ToString();
+                            }
+                            else
+                            {
+                                OpenModelManager();
+                                return;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 6. Lanzar procesamiento final en segundo plano según opción seleccionada
             var processingMode = ImportWithDiarization
                 ? ProcessingMode.TranscriptionAndDiarization
                 : ProcessingMode.TranscriptionOnly;
@@ -1510,7 +1568,7 @@ public partial class MainViewModel : ObservableObject
         get
         {
             var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
-            if (version == null) return "Versión 1.5.9";
+            if (version == null) return "Versión 1.6.0";
             return version.Revision > 0
                 ? $"Versión {version.Major}.{version.Minor}.{version.Build} r{version.Revision}"
                 : $"Versión {version.Major}.{version.Minor}.{version.Build}";
@@ -1522,7 +1580,7 @@ public partial class MainViewModel : ObservableObject
         get
         {
             var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
-            if (version == null) return "v1.5.9";
+            if (version == null) return "v1.6.0";
             return version.Revision > 0
                 ? $"v{version.Major}.{version.Minor}.{version.Build}r{version.Revision}"
                 : $"v{version.Major}.{version.Minor}.{version.Build}";
@@ -1869,6 +1927,18 @@ public partial class MainViewModel : ObservableObject
     // Configuración de Ubicación de Almacenamiento de Modelos Locales
     [ObservableProperty]
     private string _currentModelsDirectory = string.Empty;
+
+    [ObservableProperty]
+    private string _editableModelsDirectory = string.Empty;
+
+    [ObservableProperty]
+    private bool _hasMinimumAsrModelInstalled;
+
+    [ObservableProperty]
+    private string _minimumAsrStatusText = string.Empty;
+
+    [ObservableProperty]
+    private string _detectedModelsSummary = string.Empty;
 
     [ObservableProperty]
     private bool _isCustomModelsDirectory;
@@ -2647,6 +2717,7 @@ public partial class MainViewModel : ObservableObject
 
             // Cargar ubicación de almacenamiento de modelos
             CurrentModelsDirectory = savedSettings.EffectiveModelsDirectory;
+            EditableModelsDirectory = CurrentModelsDirectory;
             IsCustomModelsDirectory = savedSettings.IsCustomModelsDirectory;
             ModelsDirectoryTypeBadge = IsCustomModelsDirectory ? "Ubicación personalizada" : "Ubicación predeterminada";
 
@@ -2794,6 +2865,27 @@ public partial class MainViewModel : ObservableObject
         bool summaryDownloaded = _liveSummaryModelManager.IsModelDownloaded();
         bool qwen06Downloaded = qwen06Info?.IsDownloaded ?? false;
         bool qwen17Downloaded = qwen17Info?.IsDownloaded ?? false;
+
+        var downloadedAsr = available.Where(m => m.IsDownloaded).ToList();
+        HasMinimumAsrModelInstalled = downloadedAsr.Count > 0;
+        if (HasMinimumAsrModelInstalled)
+        {
+            MinimumAsrStatusText = $"✓ Requisito mínimo cumplido: {downloadedAsr.Count} modelo(s) ASR disponible(s) ({string.Join(", ", downloadedAsr.Select(m => m.Name))}).";
+        }
+        else
+        {
+            MinimumAsrStatusText = "⚠️ Requisito mínimo no cumplido: es necesario disponer de al menos un modelo ASR para poder transcribir.";
+        }
+
+        int totalDetected = downloadedAsr.Count + (summaryDownloaded ? 1 : 0) + (_modelManager.IsVadModelDownloaded() ? 1 : 0) + (_modelManager.IsDiarizationModelDownloaded() ? 1 : 0);
+        if (totalDetected == 0)
+        {
+            DetectedModelsSummary = "La carpeta seleccionada no contiene modelos previamente descargados.";
+        }
+        else
+        {
+            DetectedModelsSummary = $"Se han detectado {totalDetected} modelo(s) compatible(s) en esta ubicación.";
+        }
 
         if (FirstRunModels.Count == 0)
         {
@@ -3091,6 +3183,15 @@ public partial class MainViewModel : ObservableObject
         {
             _firstRunCts.Cancel();
         }
+    }
+
+    [RelayCommand]
+    public void OpenModelCatalogFromFirstRun()
+    {
+        IsFirstRunModelsModalOpen = false;
+        FirstRunModelsPromptCompleted = true;
+        SaveCurrentUserSettings();
+        OpenModelManager();
     }
 
     [RelayCommand]
@@ -3441,26 +3542,70 @@ public partial class MainViewModel : ObservableObject
                     }
                 }
 
-                // 2. Descargar modelo en vivo si no está en caché
+                // 2. Verificar disponibilidad del modelo ASR sin descarga automática
                 var availableModels = _modelManager.GetAvailableModels();
                 var modelInfo = availableModels.FirstOrDefault(m => m.Size == liveModelToUse);
-                if (modelInfo != null && !modelInfo.IsDownloaded)
+                if (modelInfo == null || !modelInfo.IsDownloaded)
                 {
-                    UpdateStatus("Descargando modelo " + modelInfo.Name + "...");
-                    var progress = new Progress<double>(p =>
+                    var altModel = availableModels.FirstOrDefault(m => m.IsDownloaded);
+                    if (altModel != null)
                     {
-                        if (Application.Current?.Dispatcher != null)
+                        if (Application.Current == null)
                         {
-                            Application.Current.Dispatcher.InvokeAsync(() =>
-                            {
-                                ModelDownloadProgress = p;
-                                ModelDownloadStatusText = $"Descargando modelo {modelInfo.Name}: {(int)(p * 100)}%";
-                                StatusMessage = ModelDownloadStatusText;
-                            });
+                            // En entornos no interactivos (p. ej. tests unitarios headless) utilizar el modelo disponible
+                            liveModelToUse = altModel.Size;
+                            _logger?.LogInformation("Entorno no interactivo: usando automáticamente modelo disponible '{Name}'.", altModel.Name);
                         }
-                    });
+                        else
+                        {
+                            var result = MessageBox.Show(
+                                $"El modelo seleccionado '{modelInfo?.Name ?? liveModelToUse.ToString()}' no está instalado.\n\n" +
+                                $"Está disponible el modelo alternativo '{altModel.Name}'.\n\n" +
+                                $"¿Desea utilizar '{altModel.Name}' para transcribir esta reunión?\n\n" +
+                                $"(Seleccione 'No' para abrir el Gestor de Modelos y descargarlo manualmente)",
+                                "Modelo no instalado",
+                                MessageBoxButton.YesNoCancel,
+                                MessageBoxImage.Question);
 
-                    await _modelManager.EnsureModelDownloadedAsync(liveModelToUse, progress);
+                            if (result == MessageBoxResult.Yes)
+                            {
+                                liveModelToUse = altModel.Size;
+                                _logger?.LogInformation("Usuario optó por usar el modelo ASR alternativo '{Name}'.", altModel.Name);
+                            }
+                            else if (result == MessageBoxResult.No)
+                            {
+                                IsStartingMeeting = false;
+                                OpenModelManager();
+                                return;
+                            }
+                            else
+                            {
+                                IsStartingMeeting = false;
+                                return;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        if (Application.Current != null)
+                        {
+                            var result = MessageBox.Show(
+                                $"El modelo seleccionado '{modelInfo?.Name ?? liveModelToUse.ToString()}' no está instalado y no hay ningún otro modelo ASR disponible.\n\n" +
+                                "Requisito mínimo: disponer de al menos un modelo ASR instalado para poder transcribir audio.\n\n" +
+                                "¿Desea abrir el Gestor de Modelos para descargarlo manualmente?",
+                                "Modelo ASR no instalado",
+                                MessageBoxButton.YesNo,
+                                MessageBoxImage.Warning);
+
+                            if (result == MessageBoxResult.Yes)
+                            {
+                                OpenModelManager();
+                            }
+                        }
+
+                        IsStartingMeeting = false;
+                        return;
+                    }
                 }
 
                 // 3. Inicializar motor de transcripción en segundo plano (pesado en CPU/RAM)
@@ -3649,7 +3794,52 @@ public partial class MainViewModel : ObservableObject
                     }
                     else if (finalOption.ModelSize.HasValue)
                     {
-                        finalModelToUse = finalOption.ModelSize.Value.ToString();
+                        var optModel = finalOption.ModelSize.Value;
+                        var availModels = _modelManager.GetAvailableModels();
+                        var optModelInfo = availModels.FirstOrDefault(m => m.Size == optModel);
+                        if (optModelInfo != null && optModelInfo.IsDownloaded)
+                        {
+                            finalModelToUse = optModel.ToString();
+                        }
+                        else
+                        {
+                            var altModel = availModels.FirstOrDefault(m => m.IsDownloaded);
+                            if (altModel != null)
+                            {
+                                if (Application.Current == null)
+                                {
+                                    finalModelToUse = altModel.Size.ToString();
+                                }
+                                else
+                                {
+                                    var result = MessageBox.Show(
+                                        $"El modelo definitivo seleccionado '{finalOption.DisplayName}' no está instalado.\n\n" +
+                                        $"Está disponible el modelo alternativo '{altModel.Name}'.\n\n" +
+                                        $"¿Desea utilizar '{altModel.Name}' para el procesamiento final?\n\n" +
+                                        $"(Seleccione 'No' para abrir el Gestor de Modelos y descargarlo manualmente)",
+                                        "Modelo no instalado",
+                                        MessageBoxButton.YesNoCancel,
+                                        MessageBoxImage.Question);
+
+                                    if (result == MessageBoxResult.Yes)
+                                    {
+                                        finalModelToUse = altModel.Size.ToString();
+                                    }
+                                    else
+                                    {
+                                        if (result == MessageBoxResult.No)
+                                        {
+                                            OpenModelManager();
+                                        }
+                                        finalModelToUse = _transcriptionService.CurrentModel.ToString();
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                finalModelToUse = _transcriptionService.CurrentModel.ToString();
+                            }
+                        }
                     }
                 }
 
@@ -3838,6 +4028,59 @@ public partial class MainViewModel : ObservableObject
         var targetModel = !string.IsNullOrWhiteSpace(modelName)
             ? modelName
             : (SelectedFinalModel?.ModelSize?.ToString() ?? "Qwen3_06B");
+
+        if (Enum.TryParse<ModelSize>(targetModel, true, out var tSize) && !_modelManager.IsModelDownloaded(tSize))
+        {
+            var available = _modelManager.GetAvailableModels();
+            var alt = available.FirstOrDefault(m => m.IsDownloaded);
+            if (alt != null)
+            {
+                if (Application.Current == null)
+                {
+                    targetModel = alt.Size.ToString();
+                }
+                else
+                {
+                    var res = MessageBox.Show(
+                        $"El modelo ASR '{targetModel}' no está instalado.\n\n" +
+                        $"Está disponible el modelo alternativo '{alt.Name}'.\n\n" +
+                        $"¿Desea utilizar '{alt.Name}' para reprocesar esta reunión?\n\n" +
+                        $"(Seleccione 'No' para abrir el Gestor de Modelos)",
+                        "Modelo no instalado",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Question);
+
+                    if (res == MessageBoxResult.Yes)
+                    {
+                        targetModel = alt.Size.ToString();
+                    }
+                    else
+                    {
+                        OpenModelManager();
+                        return Task.CompletedTask;
+                    }
+                }
+            }
+            else
+            {
+                if (Application.Current != null)
+                {
+                    var res = MessageBox.Show(
+                        $"El modelo ASR '{targetModel}' no está instalado y no hay ningún modelo ASR alternativo disponible.\n\n" +
+                        "Requisito mínimo: disponer de al menos un modelo ASR instalado para poder transcribir audio.\n\n" +
+                        "¿Desea abrir el Gestor de Modelos para descargarlo?",
+                        "Modelo no instalado",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Warning);
+
+                    if (res == MessageBoxResult.Yes)
+                    {
+                        OpenModelManager();
+                    }
+                }
+                return Task.CompletedTask;
+            }
+        }
 
         if (_meetingService.CurrentMeeting?.Id == meeting.Id)
         {
@@ -5362,22 +5605,85 @@ public partial class MainViewModel : ObservableObject
             var available = _modelManager.GetAvailableModels();
             ModelCatalog.Clear();
 
+            // 1. Modelos ASR
             foreach (var m in available)
             {
                 var isRec = m.Size == FirstRunRecommendedModel;
                 var formattedMb = m.FileSizeBytes > 0 ? $"~{m.FileSizeBytes / 1_000_000} MB" : string.Empty;
+                bool isIncomplete = _modelManager.IsModelIncomplete(m.Size);
+                string status = m.IsDownloaded ? "Instalado" : (isIncomplete ? "Incompleto" : "No instalado");
 
                 ModelCatalog.Add(new WhisperModelCardViewModel
                 {
-                    Size = m.Size,
+                    Id = m.Size.ToString(),
+                    ModelSize = m.Size,
+                    ModelType = "ASR",
                     Name = m.Name,
                     Description = m.Description,
                     FormattedSize = formattedMb,
                     EngineBadge = m.FamilyName,
                     IsDownloaded = m.IsDownloaded,
+                    IsIncomplete = isIncomplete,
+                    StatusText = status,
                     IsRecommended = isRec
                 });
             }
+
+            // 2. Modelo VAD (Silero)
+            bool vadDownloaded = _modelManager.IsVadModelDownloaded();
+            bool vadIncomplete = _modelManager.IsVadModelIncomplete();
+            string vadStatus = vadDownloaded ? "Instalado" : (vadIncomplete ? "Incompleto" : "No instalado");
+            ModelCatalog.Add(new WhisperModelCardViewModel
+            {
+                Id = "vad_silero",
+                ModelSize = null,
+                ModelType = "VAD",
+                Name = "Silero VAD v5",
+                Description = "Detector de actividad de voz por redes neuronales (ONNX). Segmenta el audio separando habla y silencios.",
+                FormattedSize = "~4.2 MB",
+                EngineBadge = "Silero (ONNX)",
+                IsDownloaded = vadDownloaded,
+                IsIncomplete = vadIncomplete,
+                StatusText = vadStatus,
+                IsRecommended = false
+            });
+
+            // 3. Modelo Diarización (PyAnnote)
+            bool diarDownloaded = _modelManager.IsDiarizationModelDownloaded();
+            bool diarIncomplete = _modelManager.IsDiarizationModelIncomplete();
+            string diarStatus = diarDownloaded ? "Instalado" : (diarIncomplete ? "Incompleto" : "No instalado");
+            ModelCatalog.Add(new WhisperModelCardViewModel
+            {
+                Id = "diarization_pyannote",
+                ModelSize = null,
+                ModelType = "Diarización",
+                Name = "PyAnnote Community-1",
+                Description = "Identificación y separación de hablantes (diarización acústica) sin conexión.",
+                FormattedSize = "~32 MB",
+                EngineBadge = "PyAnnote (Sherpa ONNX)",
+                IsDownloaded = diarDownloaded,
+                IsIncomplete = diarIncomplete,
+                StatusText = diarStatus,
+                IsRecommended = false
+            });
+
+            // 4. Modelo Resumen Local (Qwen 1.5B GGUF)
+            bool sumDownloaded = _liveSummaryModelManager.IsModelDownloaded();
+            string sumStatus = sumDownloaded ? "Instalado" : "No instalado";
+            ModelCatalog.Add(new WhisperModelCardViewModel
+            {
+                Id = "summary_15b",
+                ModelSize = null,
+                ModelType = "Resumen",
+                Name = _liveSummaryModelManager.ModelName,
+                Description = "Generación de resúmenes de reuniones estructurados en local.",
+                FormattedSize = "~986 MB",
+                EngineBadge = "LlamaSharp (GGUF)",
+                IsDownloaded = sumDownloaded,
+                IsIncomplete = false,
+                StatusText = sumStatus,
+                IsRecommended = false
+            });
         }
         catch (Exception ex)
         {
@@ -5390,6 +5696,12 @@ public partial class MainViewModel : ObservableObject
     {
         if (card == null || card.IsDownloading) return;
 
+        if (card.IsDownloaded)
+        {
+            MessageBox.Show($"El modelo '{card.Name}' ya está completamente instalado.", "Modelo instalado", MessageBoxButton.OK, MessageBoxImage.Information);
+            return;
+        }
+
         if (!IsModelsDirectoryAccessible)
         {
             MessageBox.Show(
@@ -5400,31 +5712,89 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
+        card.Cts?.Dispose();
+        card.Cts = new CancellationTokenSource();
+        var ct = card.Cts.Token;
+
         try
         {
             card.IsDownloading = true;
+            card.StatusText = "Descargando...";
             card.DownloadProgress = 0.0;
+            card.ProgressText = "0%";
             StatusMessage = $"Descargando {card.Name}...";
 
             var progress = new Progress<double>(p =>
             {
-                card.DownloadProgress = p;
+                void Update()
+                {
+                    card.DownloadProgress = p;
+                    card.ProgressText = $"{(int)(p * 100)}%";
+                }
+                if (Application.Current?.Dispatcher != null && !Application.Current.Dispatcher.CheckAccess())
+                {
+                    Application.Current.Dispatcher.InvokeAsync(Update);
+                }
+                else
+                {
+                    Update();
+                }
             });
 
-            await _modelManager.EnsureModelDownloadedAsync(card.Size, progress);
+            if (card.ModelSize.HasValue)
+            {
+                await _modelManager.DownloadModelAsync(card.ModelSize.Value, progress, ct);
+            }
+            else if (card.Id == "vad_silero")
+            {
+                await _modelManager.DownloadVadModelAsync(progress, ct);
+            }
+            else if (card.Id == "diarization_pyannote")
+            {
+                await _modelManager.DownloadDiarizationModelAsync(progress, ct);
+            }
+            else if (card.Id == "summary_15b")
+            {
+                await _liveSummaryModelManager.EnsureModelDownloadedAsync(progress, ct);
+            }
+
             card.IsDownloaded = true;
+            card.IsIncomplete = false;
             card.IsDownloading = false;
-            IsFirstRunOnboardingVisible = false;
+            card.StatusText = "Instalado";
             StatusMessage = $"Modelo {card.Name} descargado y listo para uso local.";
-            MessageBox.Show(LocFmt("Msg_Model_Downloaded_Ready", card.Name), Loc("Msg_Model_Downloaded_Ready_Title"), MessageBoxButton.OK, MessageBoxImage.Information);
             RefreshModelCatalog();
+            RefreshFirstRunModelsStatus();
+        }
+        catch (OperationCanceledException)
+        {
+            card.IsDownloading = false;
+            card.DownloadProgress = 0.0;
+            card.ProgressText = string.Empty;
+            StatusMessage = $"Descarga de {card.Name} cancelada.";
+            RefreshModelCatalog();
+            RefreshFirstRunModelsStatus();
         }
         catch (Exception ex)
         {
             card.IsDownloading = false;
+            card.ProgressText = string.Empty;
             StatusMessage = $"Error al descargar {card.Name}: {ex.Message}";
+            RefreshModelCatalog();
+            RefreshFirstRunModelsStatus();
             MessageBox.Show(LocFmt("Msg_Model_Download_Error", card.Name, ex.Message), Loc("Msg_Model_Download_Error_Title"), MessageBoxButton.OK, MessageBoxImage.Error);
         }
+        finally
+        {
+            card.Cts?.Dispose();
+            card.Cts = null;
+        }
+    }
+
+    [RelayCommand]
+    private void CancelDownloadModelCard(WhisperModelCardViewModel? card)
+    {
+        card?.CancelDownload();
     }
 
     [RelayCommand]
@@ -5440,8 +5810,41 @@ public partial class MainViewModel : ObservableObject
 
         if (confirm == MessageBoxResult.Yes)
         {
-            _modelManager.DeleteModel(card.Size);
+            if (card.ModelSize.HasValue)
+            {
+                _modelManager.DeleteModel(card.ModelSize.Value);
+            }
+            else if (card.Id == "vad_silero")
+            {
+                try
+                {
+                    var vadPath = _modelManager.GetVadModelPath();
+                    if (File.Exists(vadPath)) File.Delete(vadPath);
+                }
+                catch { }
+            }
+            else if (card.Id == "diarization_pyannote")
+            {
+                try
+                {
+                    var diarPath = _modelManager.GetDiarizationModelPath();
+                    var diarDir = Path.GetDirectoryName(diarPath);
+                    if (Directory.Exists(diarDir)) Directory.Delete(diarDir, true);
+                }
+                catch { }
+            }
+            else if (card.Id == "summary_15b")
+            {
+                try
+                {
+                    var sumPath = _liveSummaryModelManager.GetModelPath();
+                    if (File.Exists(sumPath)) File.Delete(sumPath);
+                }
+                catch { }
+            }
+
             RefreshModelCatalog();
+            RefreshFirstRunModelsStatus();
             StatusMessage = $"Modelo '{card.Name}' eliminado.";
         }
     }
@@ -5449,6 +5852,66 @@ public partial class MainViewModel : ObservableObject
     #endregion
 
     #region Models Directory Management
+
+    [RelayCommand]
+    public void ApplyModelsDirectory()
+    {
+        if (string.IsNullOrWhiteSpace(EditableModelsDirectory)) return;
+
+        try
+        {
+            var targetDir = Path.GetFullPath(EditableModelsDirectory.Trim());
+            if (!Directory.Exists(targetDir))
+            {
+                Directory.CreateDirectory(targetDir);
+            }
+
+            var (isValid, errorMessage) = ModelStorageManager.ValidateDestination(CurrentModelsDirectory, targetDir);
+            if (!isValid)
+            {
+                MessageBox.Show(
+                    errorMessage ?? Loc("Msg_Model_Folder_Invalid_Default"),
+                    Loc("Msg_Model_Folder_Invalid_Title"),
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
+
+            ApplyNewModelsDirectory(targetDir);
+
+            var availableInNew = _modelManager.GetAvailableModels().Where(m => m.IsDownloaded).ToList();
+            bool vadInNew = _modelManager.IsVadModelDownloaded();
+            bool diarInNew = _modelManager.IsDiarizationModelDownloaded();
+            bool summaryInNew = _liveSummaryModelManager.IsModelDownloaded();
+            int totalCount = availableInNew.Count + (vadInNew ? 1 : 0) + (diarInNew ? 1 : 0) + (summaryInNew ? 1 : 0);
+
+            if (totalCount > 0)
+            {
+                MessageBox.Show(
+                    $"Se ha configurado la ubicación de modelos en:\n{targetDir}\n\nSe detectaron {totalCount} modelo(s) compatible(s) ya existente(s) en esta carpeta.",
+                    "Ubicación de modelos actualizada",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+            else
+            {
+                MessageBox.Show(
+                    $"Se ha configurado la ubicación de modelos en:\n{targetDir}\n\nLa carpeta seleccionada no contiene modelos previamente descargados.",
+                    "Ubicación de modelos actualizada",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Error al aplicar la carpeta de modelos {Path}.", EditableModelsDirectory);
+            MessageBox.Show(
+                $"No se pudo configurar la carpeta seleccionada:\n{ex.Message}",
+                "Error en la ruta de modelos",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
+    }
 
     [RelayCommand]
     public void ChangeModelsDirectory()
@@ -5482,30 +5945,29 @@ public partial class MainViewModel : ObservableObject
                 return;
             }
 
-            var currentModels = ModelStorageManager.ScanModels(CurrentModelsDirectory).Where(m => m.IsValid).ToList();
-            if (currentModels.Count == 0)
+            ApplyNewModelsDirectory(selectedFolder);
+
+            var availableInNew = _modelManager.GetAvailableModels().Where(m => m.IsDownloaded).ToList();
+            bool vadInNew = _modelManager.IsVadModelDownloaded();
+            bool diarInNew = _modelManager.IsDiarizationModelDownloaded();
+            bool summaryInNew = _liveSummaryModelManager.IsModelDownloaded();
+            int totalCount = availableInNew.Count + (vadInNew ? 1 : 0) + (diarInNew ? 1 : 0) + (summaryInNew ? 1 : 0);
+
+            if (totalCount > 0)
             {
-                // Caso A: La ubicación actual NO contiene modelos válidos
-                ApplyNewModelsDirectory(selectedFolder);
                 MessageBox.Show(
-                    LocFmt("Msg_Model_Folder_Configured", selectedFolder),
-                    Loc("Msg_Model_Folder_Configured_Title"),
+                    $"Se ha configurado la ubicación de modelos en:\n{selectedFolder}\n\nSe detectaron {totalCount} modelo(s) compatible(s) ya existente(s) en esta carpeta.",
+                    "Ubicación de modelos actualizada",
                     MessageBoxButton.OK,
                     MessageBoxImage.Information);
             }
             else
             {
-                // Caso B: La ubicación actual contiene modelos. Mostrar diálogo de confirmación
-                PendingModelsDirectory = Path.GetFullPath(selectedFolder);
-                MoveModelsSourceDirectory = CurrentModelsDirectory;
-                MoveModelsTargetDirectory = PendingModelsDirectory;
-                MoveModelsFoundCount = currentModels.Count;
-                long totalBytes = currentModels.Sum(m => m.TotalSizeBytes);
-                MoveModelsFoundFormattedSize = FormatBytes(totalBytes);
-                MoveModelsHasError = false;
-                MoveModelsErrorMessage = null;
-                IsMovingModels = false;
-                IsMoveModelsModalOpen = true;
+                MessageBox.Show(
+                    $"Se ha configurado la ubicación de modelos en:\n{selectedFolder}\n\nLa carpeta seleccionada no contiene modelos previamente descargados.",
+                    "Ubicación de modelos actualizada",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
             }
         }
         catch (Exception ex)
@@ -5656,6 +6118,11 @@ public partial class MainViewModel : ObservableObject
                     OnError();
                 }
             }
+            finally
+            {
+                _moveModelsCts?.Dispose();
+                _moveModelsCts = null;
+            }
         }).SafeFireAndForget(_logger, "MoveModels_MigrateModels");
     }
 
@@ -5673,6 +6140,7 @@ public partial class MainViewModel : ObservableObject
         _diarizationService.SetModelsFolder(Path.Combine(fullPath, "diarization"));
 
         CurrentModelsDirectory = fullPath;
+        EditableModelsDirectory = fullPath;
         var defaultDir = UserSettings.DefaultModelsDirectory;
         IsCustomModelsDirectory = !string.Equals(
             fullPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),

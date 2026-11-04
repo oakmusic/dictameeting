@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -23,6 +23,9 @@ public class SileroVoiceActivityDetector : IVoiceActivityDetector
     private readonly ILogger<SileroVoiceActivityDetector>? _logger;
     private readonly string? _customStreamingModelPath;
     private readonly string? _customSequenceModelPath;
+    private readonly object _sequenceSessionLock = new();
+    private InferenceSession? _sequenceSession;
+    private string? _cachedSequenceModelPath;
     private bool _disposed;
 
     public VadStatistics? LastStatistics { get; private set; }
@@ -143,13 +146,22 @@ public class SileroVoiceActivityDetector : IVoiceActivityDetector
         const int contextSamples = 64;
         int maxFramesPerBatch = Math.Max(1, config.MaxFramesPerBatch);
 
-        var opts = new SessionOptions
+        InferenceSession session;
+        lock (_sequenceSessionLock)
         {
-            IntraOpNumThreads = 1,
-            InterOpNumThreads = 1
-        };
-
-        using var session = new InferenceSession(modelPath, opts);
+            if (_sequenceSession == null || _cachedSequenceModelPath != modelPath)
+            {
+                _sequenceSession?.Dispose();
+                var opts = new SessionOptions
+                {
+                    IntraOpNumThreads = 1,
+                    InterOpNumThreads = 1
+                };
+                _sequenceSession = new InferenceSession(modelPath, opts);
+                _cachedSequenceModelPath = modelPath;
+            }
+            session = _sequenceSession;
+        }
 
         int totalFrames = (audio.Length + frameSamples - 1) / frameSamples;
         var speechProbs = new List<float>(totalFrames);
@@ -565,10 +577,28 @@ public class SileroVoiceActivityDetector : IVoiceActivityDetector
         return Path.Combine(AppContext.BaseDirectory, "models", "silero", defaultFileName);
     }
 
+    /// <summary>
+    /// Libera la sesión ONNX secuencial cacheada en memoria.
+    /// </summary>
+    public void UnloadSequenceSession()
+    {
+        lock (_sequenceSessionLock)
+        {
+            if (_sequenceSession != null)
+            {
+                _logger?.LogDebug("Descargando sesión ONNX secuencial de Silero VAD para liberar recursos.");
+                _sequenceSession.Dispose();
+                _sequenceSession = null;
+                _cachedSequenceModelPath = null;
+            }
+        }
+    }
+
     public void Dispose()
     {
         if (_disposed) return;
         _disposed = true;
+        UnloadSequenceSession();
     }
 }
 

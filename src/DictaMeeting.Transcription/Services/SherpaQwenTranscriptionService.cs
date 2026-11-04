@@ -1,609 +1,1347 @@
-using System.IO;
+using System.Runtime.InteropServices;
+﻿using System.IO;
+
 using DictaMeeting.Meetings.Enums;
+
 using DictaMeeting.Meetings.Models;
+
 using DictaMeeting.Meetings.Services;
+
 using DictaMeeting.Meetings.Vocabulary;
+
 using DictaMeeting.Transcription.Interfaces;
+
 using DictaMeeting.Transcription.Models;
+
 using Microsoft.Extensions.Logging;
+
 using NAudio.Wave;
+
 using SherpaOnnx;
+
+
 
 namespace DictaMeeting.Transcription.Services;
 
+
+
 /// <summary>
+
 /// Servicio de transcripción local basado en la familia de modelos Qwen3-ASR (Alibaba)
+
 /// ejecutados mediante el motor nativo ONNX Runtime (sherpa-onnx).
+
 /// </summary>
+
 public class SherpaQwenTranscriptionService : ITranscriptionService
+
 {
+
     private readonly IModelManager _modelManager;
+
     private readonly IVoiceActivityDetector? _vad;
+
     private readonly IVocabularyService? _vocabularyService;
+
     private readonly ILogger<SherpaQwenTranscriptionService>? _logger;
+
     private readonly object _recognizerLock = new();
 
+
+
     private OfflineRecognizer? _recognizer;
+
     private string? _lastModelPath;
+
     private ModelSize _currentModel = ModelSize.Qwen3_06B;
+
     private LanguageMode _currentLanguage = LanguageMode.Auto;
+
     private bool _isInitialized;
+
     private bool _disposed;
 
+
+
     public bool IsInitialized => _isInitialized;
+
     public ModelSize CurrentModel => _currentModel;
+
     public LanguageMode CurrentLanguage
+
     {
+
         get => _currentLanguage;
+
         set => _currentLanguage = value;
+
     }
+
+
 
     public SherpaQwenTranscriptionService(
+
         IModelManager modelManager,
+
         IVoiceActivityDetector? vad = null,
+
         IVocabularyService? vocabularyService = null,
+
         ILogger<SherpaQwenTranscriptionService>? logger = null)
+
     {
+
         _modelManager = modelManager;
+
         _vad = vad;
+
         _vocabularyService = vocabularyService;
+
         _logger = logger;
 
+
+
         if (_vocabularyService != null)
+
         {
+
             _vocabularyService.VocabularyChanged += OnVocabularyChanged;
+
         }
+
     }
+
+
 
     private void OnVocabularyChanged(object? sender, EventArgs e)
+
     {
+
         lock (_recognizerLock)
+
         {
+
             if (_isInitialized && !string.IsNullOrEmpty(_lastModelPath))
+
             {
+
                 try
+
                 {
+
                     DisposeRecognizer();
+
                     _recognizer = CreateRecognizer(_lastModelPath, _currentLanguage);
+
                     _isInitialized = true;
+
                     _logger?.LogDebug("Motor Qwen3-ASR actualizado con nuevo glosario de Hotwords.");
+
                 }
+
                 catch (Exception ex)
+
                 {
+
                     _logger?.LogWarning(ex, "Error al actualizar Hotwords en motor Qwen3-ASR tras cambio de vocabulario.");
+
                 }
+
             }
+
         }
+
     }
+
+
 
     public async Task InitializeAsync(ModelSize modelSize, CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            _currentModel = modelSize;
-            var modelPath = await _modelManager.EnsureModelDownloadedAsync(modelSize, null, cancellationToken);
 
-            lock (_recognizerLock)
+    {
+
+        try
+
+        {
+
+            _currentModel = modelSize;
+
+            if (!_modelManager.IsModelDownloaded(modelSize))
             {
-                DisposeRecognizer();
-                _lastModelPath = modelPath;
-                _recognizer = CreateRecognizer(modelPath, _currentLanguage);
-                _isInitialized = true;
+                throw new InvalidOperationException($"El modelo Qwen3-ASR '{modelSize}' no está instalado. Debe descargarse manualmente antes de inicializar la transcripción.");
             }
 
+            var modelPath = _modelManager.GetModelPath(modelSize);
+
+
+
+            lock (_recognizerLock)
+
+            {
+
+                DisposeRecognizer();
+
+                _lastModelPath = modelPath;
+
+                _recognizer = CreateRecognizer(modelPath, _currentLanguage);
+
+                _isInitialized = true;
+
+            }
+
+
+
             _logger?.LogInformation("Motor Qwen3-ASR inicializado con éxito. Modelo: {Model}, Idioma: {Language}, Ruta: {Path}",
+
                 modelSize, _currentLanguage, modelPath);
+
         }
+
         catch (Exception ex)
+
         {
+
             _logger?.LogError(ex, "Error al inicializar el motor Qwen3-ASR para el modelo {Model}.", modelSize);
+
             throw;
+
         }
+
     }
 
+
+
     private OfflineRecognizer CreateRecognizer(string modelPath, LanguageMode language, bool includeHotwords = true)
+
     {
+
         string convFrontend = Path.Combine(modelPath, "conv_frontend.onnx");
+
         if (!File.Exists(convFrontend))
+
         {
+
             throw new FileNotFoundException($"No se encontró 'conv_frontend.onnx' en {modelPath}");
+
         }
+
+
 
         string encoder = Path.Combine(modelPath, "encoder.int8.onnx");
+
         if (!File.Exists(encoder))
+
         {
+
             encoder = Path.Combine(modelPath, "encoder.onnx");
+
         }
+
         if (!File.Exists(encoder))
+
         {
+
             throw new FileNotFoundException($"No se encontró 'encoder.int8.onnx' ni 'encoder.onnx' en {modelPath}");
+
         }
+
+
 
         string decoder = Path.Combine(modelPath, "decoder.int8.onnx");
+
         if (!File.Exists(decoder))
+
         {
+
             decoder = Path.Combine(modelPath, "decoder.onnx");
+
         }
+
         if (!File.Exists(decoder))
+
         {
+
             throw new FileNotFoundException($"No se encontró 'decoder.int8.onnx' ni 'decoder.onnx' en {modelPath}");
+
         }
+
+
 
         string tokenizerDir = Path.Combine(modelPath, "tokenizer");
+
         if (!Directory.Exists(tokenizerDir))
+
         {
+
             tokenizerDir = modelPath;
+
         }
+
+
 
         string hotwords = string.Empty;
+
         if (includeHotwords)
+
         {
+
             string defaultHotwords = language switch
+
             {
+
                 LanguageMode.Spanish => "reunión, acta, acuerdo, proyecto",
+
                 LanguageMode.English => "meeting, action item, project",
+
                 _ => string.Empty
+
             };
 
+
+
             // Acotamos hotwords a un máximo prudente (ej. 15 términos prioritarios de usuario) para no saturar
+
             // el scaffold de prompt de sherpa-onnx (límite de 48 tokens) ni restar espacio al KV-cache de 512 tokens.
+
             // La corrección exhaustiva de todos los términos y variantes se ejecuta de forma determinista con ReplaceAliases().
+
             string userHotwords = _vocabularyService?.FormatSherpaHotwords(15) ?? string.Empty;
+
             hotwords = string.IsNullOrWhiteSpace(userHotwords)
+
                 ? defaultHotwords
+
                 : (string.IsNullOrWhiteSpace(defaultHotwords) ? userHotwords : $"{userHotwords}, {defaultHotwords}");
+
         }
 
+
+
         var qwen = new OfflineQwen3AsrModelConfig
+
         {
+
             ConvFrontend = convFrontend,
+
             Encoder = encoder,
+
             Decoder = decoder,
+
             Tokenizer = tokenizerDir,
+
             MaxTotalLen = 512,
+
             MaxNewTokens = 128,
+
             Temperature = 0.0f,
+
             TopP = 1.0f,
+
             Seed = 42,
+
             Hotwords = hotwords
+
         };
+
+
 
         int threads = Math.Max(1, Math.Min(Environment.ProcessorCount - 2, 8));
+
         var modelConfig = new OfflineModelConfig
+
         {
+
             Qwen3Asr = qwen,
+
             NumThreads = threads,
+
             Provider = "cpu"
+
         };
 
+
+
         var config = new OfflineRecognizerConfig
+
         {
+
             ModelConfig = modelConfig
+
         };
+
+
 
         var recognizer = new OfflineRecognizer(config);
 
+
+
         using var testStream = recognizer.CreateStream();
+
         if (testStream.Handle == IntPtr.Zero)
+
         {
+
             recognizer.Dispose();
+
             throw new InvalidOperationException($"No se pudo inicializar el reconocedor nativo sherpa-onnx para Qwen3-ASR en {modelPath}. Verifique los archivos del modelo.");
+
         }
+
+
 
         return recognizer;
+
     }
+
+
 
     public Task<IReadOnlyList<TranscriptSegment>> TranscribeAudioFileAsync(
+
         string audioFilePath,
+
         IProgress<double>? progress = null,
+
         CancellationToken cancellationToken = default)
+
     {
+
         return TranscribeAudioFileAsync(audioFilePath, _currentModel, _currentLanguage, progress, cancellationToken);
+
     }
 
+
+
     public async Task<IReadOnlyList<TranscriptSegment>> TranscribeAudioFileAsync(
+
         string audioFilePath,
+
         ModelSize modelSize,
+
         LanguageMode language,
+
         IProgress<double>? progress = null,
+
         CancellationToken cancellationToken = default)
+
     {
+
         if (!File.Exists(audioFilePath))
+
         {
+
             return Array.Empty<TranscriptSegment>();
+
         }
 
-        var modelPath = await _modelManager.EnsureModelDownloadedAsync(modelSize, null, cancellationToken);
+
+
+        if (!_modelManager.IsModelDownloaded(modelSize))
+        {
+            throw new InvalidOperationException($"El modelo Qwen3-ASR '{modelSize}' no está instalado. Debe descargarse manualmente antes de transcribir.");
+        }
+
+        var modelPath = _modelManager.GetModelPath(modelSize);
+
         var segments = new List<TranscriptSegment>();
+
         var tempWavPath = Path.Combine(Path.GetTempPath(), $"dictameeting_qwen_asr_{Guid.NewGuid():N}.wav");
 
+
+
         try
+
         {
+
             await Task.Run(() =>
+
             {
+
                 // 1. Resamplear a WAV 16 kHz Mono de 16 bits para el reconocedor y Silero VAD
+
                 using (var reader = new AudioFileReader(audioFilePath))
+
                 {
+
                     var outFormat = new WaveFormat(16000, 16, 1);
+
                     using var resampler = new MediaFoundationResampler(reader, outFormat);
+
                     WaveFileWriter.CreateWaveFile(tempWavPath, resampler);
+
                 }
 
+
+
                 cancellationToken.ThrowIfCancellationRequested();
+
+
 
                 // 2. Detección de regiones de voz precisas con Silero VAD (modo offline)
+
                 IReadOnlyList<SpeechRegion> speechRegions = Array.Empty<SpeechRegion>();
+
                 if (_vad != null)
+
                 {
+
                     var vadProgress = new Progress<double>(p => progress?.Report(p * 0.20));
+
                     speechRegions = _vad.DetectSpeechRegionsAsync(tempWavPath, null, vadProgress, cancellationToken).GetAwaiter().GetResult();
+
                 }
+
+
 
                 cancellationToken.ThrowIfCancellationRequested();
 
+
+
                 // 3. Crear instancia local para decodificación de archivo
+
                 using var recognizer = CreateRecognizer(modelPath, language);
+
                 OfflineRecognizer? recognizerNoHotwords = null;
+
                 var officialVocabulary = _vocabularyService?.GetOfficialWords() ?? Array.Empty<string>();
 
+
+
                 try
+
                 {
+
                     if (_vad != null && speechRegions.Count > 0)
+
                     {
-                        // Decodificación de alta precisión basada en regiones de voz delimitadas por Silero VAD
-                        float[] allSamples;
-                        using (var waveReader = new WaveFileReader(tempWavPath))
-                        {
-                            int sampleCount = (int)waveReader.SampleCount;
-                            allSamples = new float[sampleCount];
-                            byte[] byteBuffer = new byte[waveReader.Length];
-                            int totalBytesRead = 0;
-                            while (totalBytesRead < byteBuffer.Length)
-                            {
-                                int read = waveReader.Read(byteBuffer, totalBytesRead, byteBuffer.Length - totalBytesRead);
-                                if (read <= 0) break;
-                                totalBytesRead += read;
-                            }
-                            int samplesRead = totalBytesRead / 2;
-                            for (int i = 0; i < samplesRead; i++)
-                            {
-                                short s = BitConverter.ToInt16(byteBuffer, i * 2);
-                                allSamples[i] = s / 32768.0f;
-                            }
-                        }
+
+                        // Decodificación de alta precisión basada en regiones de voz delimitadas por Silero VAD.
+
+                        // Optimización de memoria: en lugar de cargar todo el audio en RAM (byteBuffer + allSamples
+
+                        // = hasta 2× el tamaño del WAV), se abre el WaveFileReader una sola vez y se lee
+
+                        // directamente cada región VAD. Solo una región (máx. pocos segundos) está en RAM
+
+                        // en cada momento, lo que reduce el consumo pico en ~700 MB para reuniones largas.
+
+                        using var waveReader = new WaveFileReader(tempWavPath);
+
+                        long totalWavSamples = waveReader.SampleCount;
+
+
+
+                        // Buffer reutilizable para conversión PCM→float: dimensionado para la región más grande
+
+                        // posible sin reservar toda la grabación de golpe.
+
+                        const int maxRegionSamples = 16000 * 60; // 60 s máximo por región VAD
+
+                        byte[] regionByteBuffer = new byte[maxRegionSamples * 2]; // 16-bit mono
+
+                        float[] regionSamples = new float[maxRegionSamples];
+
+
 
                         for (int r = 0; r < speechRegions.Count; r++)
+
                         {
+
                             cancellationToken.ThrowIfCancellationRequested();
+
                             var region = speechRegions[r];
 
-                            int startSample = Math.Clamp(region.StartSample, 0, allSamples.Length);
-                            int endSample = Math.Clamp(region.EndSample, startSample, allSamples.Length);
+
+
+                            int startSample = Math.Clamp(region.StartSample, 0, (int)totalWavSamples);
+
+                            int endSample = Math.Clamp(region.EndSample, startSample, (int)totalWavSamples);
+
                             int sampleCount = endSample - startSample;
+
                             if (sampleCount <= 0) continue;
 
-                            float[] regionSamples = new float[sampleCount];
-                            Array.Copy(allSamples, startSample, regionSamples, 0, sampleCount);
+
+
+                            // Posicionar el lector directamente en el inicio de la región (sin leer bytes anteriores)
+
+                            waveReader.Position = (long)startSample * 2; // 2 bytes por muestra (16-bit mono)
+
+
+
+                            // Redimensionar los buffers si la región supera el tamaño máximo pre-asignado
+
+                            int bytesNeeded = sampleCount * 2;
+
+                            if (bytesNeeded > regionByteBuffer.Length)
+
+                            {
+
+                                regionByteBuffer = new byte[bytesNeeded];
+
+                                regionSamples = new float[sampleCount];
+
+                            }
+
+
+
+                            // Leer solo los bytes de esta región
+
+                            int bytesRead = 0;
+
+                            while (bytesRead < bytesNeeded)
+
+                            {
+
+                                int chunk = waveReader.Read(regionByteBuffer, bytesRead, bytesNeeded - bytesRead);
+
+                                if (chunk <= 0) break;
+
+                                bytesRead += chunk;
+
+                            }
+
+                            int samplesRead = bytesRead / 2;
+
+
+
+                            // Convertir PCM 16-bit a float normalizado [-1, 1]
+
+                            for (int i = 0; i < samplesRead; i++)
+
+                            {
+
+                                short s = BitConverter.ToInt16(regionByteBuffer, i * 2);
+
+                                regionSamples[i] = s / 32768.0f;
+
+                            }
+
+
+
+                            // Vista recortada al tamaño real leído
+
+                            var activeRegionSamples = regionSamples.AsSpan(0, samplesRead);
+
+
 
                             // Pre-filtro de energía acústica en la región para descartar micro-ruidos o toses sin voz
+
                             float regionEnergy = 0f;
-                            for (int i = 0; i < sampleCount; i++)
+
+                            for (int i = 0; i < samplesRead; i++)
+
                             {
-                                regionEnergy += regionSamples[i] * regionSamples[i];
+
+                                regionEnergy += activeRegionSamples[i] * activeRegionSamples[i];
+
                             }
-                            float regionRms = (float)Math.Sqrt(regionEnergy / sampleCount);
+
+                            float regionRms = samplesRead > 0
+
+                                ? (float)Math.Sqrt(regionEnergy / samplesRead)
+
+                                : 0f;
+
+
 
                             if ((region.Duration.TotalMilliseconds < 350 && region.AverageProbability < 0.40f) || regionRms < 0.003f)
+
                             {
+
                                 _logger?.LogDebug("Región VAD descartada por bajo nivel acústico/probabilidad ({Start}-{End}, Duración: {Dur:F0}ms, Prob: {Prob:F2}, RMS: {Rms:F4}).",
+
                                     region.StartTime, region.EndTime, region.Duration.TotalMilliseconds, region.AverageProbability, regionRms);
+
                                 continue;
+
                             }
 
+
+
                             using var stream = recognizer.CreateStream();
+
                             if (stream.Handle != IntPtr.Zero)
+
                             {
-                                stream.AcceptWaveform(16000, regionSamples);
+
+                                unsafe
+
+                                {
+
+                                    fixed (float* pSamples = regionSamples)
+
+                                    {
+
+                                        SherpaOnnxAcceptWaveformOffline(stream.Handle, 16000, pSamples, samplesRead);
+
+                                    }
+
+                                }
+
                                 recognizer.Decode(stream);
 
+
+
                                 string? text = null;
+
                                 try
+
                                 {
+
                                     text = stream.Result?.Text?.Trim();
-                                }
-                                catch (Exception ex)
-                                {
-                                    _logger?.LogWarning(ex, "Error al obtener texto de Qwen3-ASR para la región {Start} a {End}.", region.StartTime, region.EndTime);
+
                                 }
 
-                                if (!string.IsNullOrWhiteSpace(text))
+                                catch (Exception ex)
+
                                 {
+
+                                    _logger?.LogWarning(ex, "Error al obtener texto de Qwen3-ASR para la región {Start} a {End}.", region.StartTime, region.EndTime);
+
+                                }
+
+
+
+                                if (!string.IsNullOrWhiteSpace(text))
+
+                                {
+
                                     var anomaly = AsrAnomalyDetector.DetectAnomaly(text, region.Duration, officialVocabulary);
+
                                     if (anomaly.IsAnomalous)
+
                                     {
+
                                         _logger?.LogWarning("Anomalía ASR detectada en región {Start} a {End} ({Reason}): '{Text}'. Intentando recuperación...",
+
                                             region.StartTime, region.EndTime, anomaly.Reason, text);
+
+
 
                                         recognizerNoHotwords ??= CreateRecognizer(modelPath, language, includeHotwords: false);
 
+
+
                                         using var retryStream = recognizerNoHotwords.CreateStream();
+
                                         if (retryStream.Handle != IntPtr.Zero)
+
                                         {
-                                            retryStream.AcceptWaveform(16000, regionSamples);
+
+                                            unsafe
+
+                                            {
+
+                                                fixed (float* pSamples = regionSamples)
+
+                                                {
+
+                                                    SherpaOnnxAcceptWaveformOffline(retryStream.Handle, 16000, pSamples, samplesRead);
+
+                                                }
+
+                                            }
+
                                             recognizerNoHotwords.Decode(retryStream);
 
+
+
                                             string? retryText = null;
+
                                             try
+
                                             {
+
                                                 retryText = retryStream.Result?.Text?.Trim();
+
                                             }
+
                                             catch (Exception ex)
+
                                             {
+
                                                 _logger?.LogWarning(ex, "Error en reintento de decodificación ASR.");
+
                                             }
+
+
 
                                             var retryAnomaly = AsrAnomalyDetector.DetectAnomaly(retryText, region.Duration, officialVocabulary);
+
                                             if (!string.IsNullOrWhiteSpace(retryText) && !retryAnomaly.IsAnomalous)
+
                                             {
+
                                                 _logger?.LogInformation("Fragmento en {Start} a {End} recuperado con éxito sin hotwords: '{Recovered}'",
+
                                                     region.StartTime, region.EndTime, retryText);
+
                                                 text = retryText;
+
                                             }
+
                                             else
+
                                             {
+
                                                 if (string.IsNullOrWhiteSpace(retryText) && region.Duration.TotalSeconds < 0.6)
+
                                                 {
+
                                                     _logger?.LogInformation("Fragmento espurio/ruido en {Start} a {End} descartado tras reintento.",
+
                                                         region.StartTime, region.EndTime);
+
                                                     text = null;
+
                                                 }
+
                                                 else
+
                                                 {
+
                                                     _logger?.LogWarning("Fragmento en {Start} a {End} no recuperable. Marcado para revisión.",
+
                                                         region.StartTime, region.EndTime);
+
                                                     text = "[Ininteligible / pendiente de revisión]";
+
                                                 }
+
                                             }
+
                                         }
+
                                     }
 
+
+
                                     if (!string.IsNullOrWhiteSpace(text))
+
                                     {
+
                                         float confidence = text == "[Ininteligible / pendiente de revisión]" ? 0.0f : region.AverageProbability;
+
                                         segments.Add(new TranscriptSegment
+
                                         {
+
                                             StartTime = region.StartTime,
+
                                             EndTime = region.EndTime,
+
                                             Text = text,
+
                                             Confidence = confidence,
+
                                             IsFinal = true
+
                                         });
+
                                     }
+
                                 }
+
                             }
+
+
 
                             double p = 0.20 + (0.80 * ((double)(r + 1) / speechRegions.Count));
+
                             progress?.Report(p);
+
                         }
+
                     }
+
                     else if (_vad != null && speechRegions.Count == 0)
+
                     {
+
                         _logger?.LogInformation("Silero VAD no detectó actividad de voz en el audio '{Path}'.", audioFilePath);
+
                         progress?.Report(1.0);
+
                     }
+
                     else
+
                     {
+
                         // Fallback por ventanas de 20s si VAD no está presente
+
                         using var waveReader = new WaveFileReader(tempWavPath);
+
                         long totalBytes = waveReader.Length;
+
                         if (totalBytes <= 0) totalBytes = 1;
 
-                        byte[] byteBuffer = new byte[16000 * 2 * 20];
+
+
+                        const int fallbackWindowSamples = 16000 * 20;
+
+                        byte[] byteBuffer = new byte[fallbackWindowSamples * 2];
+
+                        float[] fallbackSamples = new float[fallbackWindowSamples];
+
                         long bytesReadTotal = 0;
+
                         TimeSpan currentOffset = TimeSpan.Zero;
+
                         int bytesRead;
 
+
+
                         while ((bytesRead = waveReader.Read(byteBuffer, 0, byteBuffer.Length)) > 0)
+
                         {
+
                             cancellationToken.ThrowIfCancellationRequested();
 
+
+
                             int sampleCount = bytesRead / 2;
-                            float[] activeSamples = new float[sampleCount];
+
                             for (int i = 0; i < sampleCount; i++)
+
                             {
+
                                 short sample = BitConverter.ToInt16(byteBuffer, i * 2);
-                                activeSamples[i] = sample / 32768.0f;
+
+                                fallbackSamples[i] = sample / 32768.0f;
+
                             }
+
+
 
                             float energy = 0f;
-                            for (int i = 0; i < activeSamples.Length; i++)
+
+                            for (int i = 0; i < sampleCount; i++)
+
                             {
-                                energy += activeSamples[i] * activeSamples[i];
+
+                                energy += fallbackSamples[i] * fallbackSamples[i];
+
                             }
-                            energy = (float)Math.Sqrt(energy / activeSamples.Length);
+
+                            energy = (float)Math.Sqrt(energy / sampleCount);
+
+
 
                             TimeSpan chunkDuration = TimeSpan.FromSeconds((double)sampleCount / 16000.0);
+
                             TimeSpan segmentStart = currentOffset;
+
                             TimeSpan segmentEnd = currentOffset + chunkDuration;
 
+
+
                             if (energy > 0.001f)
+
                             {
+
                                 using var stream = recognizer.CreateStream();
+
                                 if (stream.Handle != IntPtr.Zero)
+
                                 {
-                                    stream.AcceptWaveform(16000, activeSamples);
+
+                                    unsafe
+
+                                    {
+
+                                        fixed (float* pSamples = fallbackSamples)
+
+                                        {
+
+                                            SherpaOnnxAcceptWaveformOffline(stream.Handle, 16000, pSamples, sampleCount);
+
+                                        }
+
+                                    }
+
                                     recognizer.Decode(stream);
 
+
+
                                     string? text = null;
+
                                     try
+
                                     {
+
                                         text = stream.Result?.Text?.Trim();
+
                                     }
+
                                     catch (Exception ex)
+
                                     {
+
                                         _logger?.LogWarning(ex, "Error al obtener texto del resultado de decodificación.");
+
                                     }
+
+
 
                                     if (!string.IsNullOrWhiteSpace(text))
+
                                     {
+
                                         var anomaly = AsrAnomalyDetector.DetectAnomaly(text, chunkDuration, officialVocabulary);
+
                                         if (!anomaly.IsAnomalous)
+
                                         {
+
                                             segments.Add(new TranscriptSegment
+
                                             {
+
                                                 StartTime = segmentStart,
+
                                                 EndTime = segmentEnd,
+
                                                 Text = text,
+
                                                 Confidence = 0.95f,
+
                                                 IsFinal = true
+
                                             });
+
                                         }
+
                                     }
+
                                 }
+
                             }
 
+
+
                             currentOffset = segmentEnd;
+
                             bytesReadTotal += bytesRead;
 
+
+
                             double p = Math.Min(1.0, (double)bytesReadTotal / totalBytes);
+
                             progress?.Report(p);
+
                         }
+
                     }
+
                 }
+
                 finally
+
                 {
+
                     recognizerNoHotwords?.Dispose();
+
                 }
+
             }, cancellationToken);
+
         }
+
         finally
+
         {
+
             try
+
             {
+
                 if (File.Exists(tempWavPath))
+
                 {
+
                     File.Delete(tempWavPath);
+
                 }
+
             }
+
             catch { }
+
         }
+
+
 
         var consolidated = TranscriptSegmentConsolidator.ConsolidateSegments(segments);
+
         if (_vocabularyService != null)
+
         {
+
             foreach (var seg in consolidated)
+
             {
+
                 seg.Text = _vocabularyService.ReplaceAliases(seg.Text);
+
             }
+
         }
+
         return consolidated;
+
     }
 
+
+
     public async Task<TranscriptSegment?> TranscribeAudioChunkAsync(
+
         byte[] pcmAudioData,
+
         TimeSpan offset,
+
         CancellationToken cancellationToken = default)
+
     {
+
         // 1. Descartar fragmentos sin inicializar o demasiado cortos (< 200 ms = 3200 muestras a 16 kHz 16-bit mono = 6400 bytes)
+
         if (!_isInitialized || _recognizer == null || pcmAudioData.Length < 6400)
+
         {
+
             return null;
+
         }
 
+
+
         return await Task.Run(() =>
+
         {
+
             int sampleCount = pcmAudioData.Length / 2;
+
             float[] samples = new float[sampleCount];
 
+
+
             float energySum = 0f;
+
             for (int i = 0; i < sampleCount; i++)
+
             {
+
                 short sample = BitConverter.ToInt16(pcmAudioData, i * 2);
+
                 float s = sample / 32768.0f;
+
                 samples[i] = s;
+
                 energySum += s * s;
+
             }
 
+
+
             // 2. Pre-filtro de energía acústica: si el nivel RMS es inferior a 0.003f, es silencio
+
             // o ruido ambiente de fondo sin energía vocal real. Se descarta sin cargar el modelo ONNX.
+
             float rms = (float)Math.Sqrt(energySum / sampleCount);
+
             if (rms < 0.003f)
+
             {
+
                 return null;
+
             }
+
+
 
             string? detectedText = null;
 
+
+
             lock (_recognizerLock)
+
             {
+
                 if (_recognizer == null) return null;
 
+
+
                 using var stream = _recognizer.CreateStream();
+
                 if (stream.Handle == IntPtr.Zero) return null;
 
+
+
                 stream.AcceptWaveform(16000, samples);
+
                 _recognizer.Decode(stream);
 
+
+
                 try
+
                 {
+
                     detectedText = stream.Result?.Text?.Trim();
+
                 }
+
                 catch (Exception ex)
+
                 {
+
                     _logger?.LogWarning(ex, "Error al obtener texto de decodificación en chunk en vivo.");
+
                 }
+
             }
+
+
 
             if (string.IsNullOrWhiteSpace(detectedText))
+
             {
+
                 return null;
+
             }
+
+
 
             TimeSpan duration = TimeSpan.FromSeconds((double)sampleCount / 16000.0);
+
             var officialVocabulary = _vocabularyService?.GetOfficialWords() ?? Array.Empty<string>();
+
             var anomaly = AsrAnomalyDetector.DetectAnomaly(detectedText, duration, officialVocabulary);
+
             if (anomaly.IsAnomalous)
+
             {
+
                 _logger?.LogWarning("Anomalía ASR detectada en chunk en vivo ({Reason}): '{Text}'. Descartado.", anomaly.Reason, detectedText);
+
                 return null;
+
             }
+
+
 
             if (_vocabularyService != null)
+
             {
+
                 detectedText = _vocabularyService.ReplaceAliases(detectedText);
+
             }
 
+
+
             return new TranscriptSegment
+
             {
+
                 StartTime = offset,
+
                 EndTime = offset + duration,
+
                 Text = detectedText,
+
                 Confidence = 0.95f,
+
                 IsFinal = false
+
             };
+
         }, cancellationToken);
+
     }
 
-    private void DisposeRecognizer()
-    {
-        _recognizer?.Dispose();
-        _recognizer = null;
-        _isInitialized = false;
-    }
 
-    public void Dispose()
-    {
-        if (_disposed) return;
-        _disposed = true;
 
-        if (_vocabularyService != null)
-        {
-            _vocabularyService.VocabularyChanged -= OnVocabularyChanged;
-        }
+    /// <summary>
+
+    /// Descarga el reconocedor Qwen3-ASR de memoria si no hay operaciones activas.
+
+    /// </summary>
+
+    public void UnloadModel()
+
+    {
 
         lock (_recognizerLock)
+
         {
-            DisposeRecognizer();
+
+            if (_recognizer != null)
+
+            {
+
+                _logger?.LogInformation("Descargando modelo Qwen3-ASR de memoria para liberar recursos.");
+
+                DisposeRecognizer();
+
+            }
+
         }
+
     }
+
+
+
+    [DllImport("sherpa-onnx-c-api", EntryPoint = "SherpaOnnxAcceptWaveformOffline")]
+
+    private static extern unsafe void SherpaOnnxAcceptWaveformOffline(IntPtr handle, int sampleRate, float* samples, int n);
+
+
+
+    private void DisposeRecognizer()
+
+    {
+
+        _recognizer?.Dispose();
+
+        _recognizer = null;
+
+        _isInitialized = false;
+
+    }
+
+
+
+    public void Dispose()
+
+    {
+
+        if (_disposed) return;
+
+        _disposed = true;
+
+
+
+        if (_vocabularyService != null)
+
+        {
+
+            _vocabularyService.VocabularyChanged -= OnVocabularyChanged;
+
+        }
+
+
+
+        lock (_recognizerLock)
+
+        {
+
+            DisposeRecognizer();
+
+        }
+
+    }
+
 }
+

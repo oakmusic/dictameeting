@@ -1,10 +1,12 @@
+using System;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 
 namespace DictaMeeting.App.Behaviors;
 
 /// <summary>
-/// Comportamiento adjunto para ScrollViewer en transcripciones en vivo:
+/// Comportamiento adjunto para ScrollViewer o controles con ScrollViewer interno (ListBox, ListView) en transcripciones en vivo:
 /// - Hace scroll automático hacia abajo cuando se añaden nuevos fragmentos, SIEMPRE que el usuario se encuentre al final.
 /// - Si el usuario hace scroll hacia arriba para inspeccionar fragmentos anteriores, suspende el auto-scroll.
 /// - Cuando el usuario vuelve a bajar al final, reanuda automáticamente el auto-scroll.
@@ -35,9 +37,36 @@ public static class SmartScrollBehavior
 
     private static void OnEnableAutoScrollChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
-        if (d is not ScrollViewer scrollViewer) return;
+        bool enable = (bool)e.NewValue;
 
-        if ((bool)e.NewValue)
+        if (d is ScrollViewer scrollViewer)
+        {
+            ConfigureScrollViewer(scrollViewer, enable);
+        }
+        else if (d is FrameworkElement element)
+        {
+            if (element.IsLoaded)
+            {
+                var sv = FindVisualChild<ScrollViewer>(element);
+                if (sv != null) ConfigureScrollViewer(sv, enable);
+            }
+            else
+            {
+                RoutedEventHandler? loadedHandler = null;
+                loadedHandler = (s, args) =>
+                {
+                    element.Loaded -= loadedHandler;
+                    var sv = FindVisualChild<ScrollViewer>(element);
+                    if (sv != null) ConfigureScrollViewer(sv, enable);
+                };
+                element.Loaded += loadedHandler;
+            }
+        }
+    }
+
+    private static void ConfigureScrollViewer(ScrollViewer scrollViewer, bool enable)
+    {
+        if (enable)
         {
             var state = new ScrollStateHolder();
             scrollViewer.SetValue(ScrollStateProperty, state);
@@ -48,6 +77,19 @@ public static class SmartScrollBehavior
             scrollViewer.ScrollChanged -= OnScrollChanged;
             scrollViewer.ClearValue(ScrollStateProperty);
         }
+    }
+
+    private static T? FindVisualChild<T>(DependencyObject parent) where T : DependencyObject
+    {
+        int count = VisualTreeHelper.GetChildrenCount(parent);
+        for (int i = 0; i < count; i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is T typedChild) return typedChild;
+            var descendant = FindVisualChild<T>(child);
+            if (descendant != null) return descendant;
+        }
+        return null;
     }
 
     private static void OnScrollChanged(object sender, ScrollChangedEventArgs e)

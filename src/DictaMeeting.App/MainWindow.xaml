@@ -68,7 +68,7 @@
                                            VerticalAlignment="Center"
                                            Margin="0,-1,10,0" />
                                 <Border Background="{DynamicResource AccentLightBrush}" BorderBrush="{DynamicResource AccentPrimaryBrush}" BorderThickness="1" CornerRadius="6" Padding="6,2" Margin="0,0,12,0" VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding AppVersionShortText, FallbackValue='v1.5.9'}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AccentPrimaryBrush}" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding AppVersionShortText, FallbackValue='v1.6.0'}" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource AccentPrimaryBrush}" VerticalAlignment="Center" />
                                 </Border>
 
                                 <!-- Status Pill with pulsing dot (Control Idle) -->
@@ -2406,43 +2406,39 @@
 
                     <!-- Models Storage Location Card -->
                     <Border Grid.Row="1" Background="{DynamicResource CardItemBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="8" Padding="14,12" Margin="0,0,0,12">
-                        <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                            </Grid.RowDefinitions>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-
+                        <StackPanel>
                             <!-- Title and Badge -->
-                            <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Margin="0,0,0,4">
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                                 <TextBlock Text="{loc:Loc Models_Location_Title}" FontSize="13" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
                                 <Border Background="{DynamicResource BgTertiaryBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="4" Padding="6,2" Margin="8,0,0,0" VerticalAlignment="Center">
                                     <TextBlock Text="{Binding ModelsDirectoryTypeBadge}" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
                                 </Border>
                             </StackPanel>
 
-                            <!-- Current Path -->
-                            <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding CurrentModelsDirectory}" FontSize="11.5" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" Margin="0,0,12,4" ToolTip="{Binding CurrentModelsDirectory}" />
+                            <!-- Path Input and Browse -->
+                            <Grid Margin="0,0,0,6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox Grid.Column="0" Text="{Binding EditableModelsDirectory, UpdateSourceTrigger=PropertyChanged}" FontSize="11.5" Height="32" VerticalContentAlignment="Center" Margin="0,0,6,0" ToolTip="{Binding CurrentModelsDirectory}" />
+                                <Button Grid.Column="1" Content="Aplicar" Style="{StaticResource SecondaryButton}" Command="{Binding ApplyModelsDirectoryCommand}" Height="32" Padding="12,0" Margin="0,0,6,0" FontSize="11.5" />
+                                <Button Grid.Column="2" Content="{loc:Loc Models_Change_Folder}" Style="{StaticResource SecondaryButton}" Command="{Binding ChangeModelsDirectoryCommand}" Height="32" Padding="12,0" FontSize="11.5" />
+                            </Grid>
 
-                            <!-- Helper Text -->
-                            <TextBlock Grid.Row="2" Grid.Column="0" Text="{loc:Loc Models_Location_Desc}" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" />
+                            <!-- Helper Text & Detected Summary -->
+                            <TextBlock Text="{Binding DetectedModelsSummary}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,2" TextWrapping="Wrap" />
+                            <TextBlock Text="{loc:Loc Models_Location_Desc}" FontSize="10.5" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" />
 
                             <!-- Inaccessible Warning Banner -->
-                            <Border Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Background="{DynamicResource AccentLightBrush}" BorderBrush="{DynamicResource DangerBrush}" BorderThickness="1" CornerRadius="6" Padding="8,6" Margin="0,8,0,0" Visibility="{Binding IsModelsDirectoryAccessible, Converter={StaticResource InverseBoolToVisConverter}}">
+                            <Border Background="{DynamicResource AccentLightBrush}" BorderBrush="{DynamicResource DangerBrush}" BorderThickness="1" CornerRadius="6" Padding="8,6" Margin="0,8,0,0" Visibility="{Binding IsModelsDirectoryAccessible, Converter={StaticResource InverseBoolToVisConverter}}">
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                     <TextBlock Text="⚠️" FontSize="12" Margin="0,0,6,0" VerticalAlignment="Center" />
                                     <TextBlock Text="{Binding ModelsDirectoryWarningMessage}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource DangerBrush}" VerticalAlignment="Center" TextWrapping="Wrap" />
                                 </StackPanel>
                             </Border>
-
-                            <!-- Change Location Button -->
-                            <Button Grid.Row="0" Grid.RowSpan="3" Grid.Column="1" Content="{loc:Loc Models_Change_Folder}" Style="{StaticResource SecondaryButton}" Command="{Binding ChangeModelsDirectoryCommand}" Height="34" Padding="14,0" FontSize="12" VerticalAlignment="Center" />
-                        </Grid>
+                        </StackPanel>
                     </Border>
 
                     <!-- Hardware Recommendation Info Callout -->
@@ -2471,6 +2467,15 @@
                                                     <TextBlock Text="{Binding Name}" FontSize="13.5" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
                                                     <TextBlock Text="{Binding FormattedSize}" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" Margin="8,0,0,0" VerticalAlignment="Center" />
 
+                                                    <!-- Model Type Badge (ASR, VAD, Diarización, Resumen) -->
+                                                    <Border Background="{DynamicResource BgTertiaryBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="4" Padding="6,2" Margin="6,0,0,0" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding ModelType}" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                    </Border>
+
+                                                    <!-- Status Badge (Instalado, No instalado, Incompleto) -->
+                                                    <Border Background="{DynamicResource BgTertiaryBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="4" Padding="6,2" Margin="6,0,0,0" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding StatusText}" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                                    </Border>
                                                     <!-- Engine Badge -->
                                                     <Border Background="{DynamicResource BgTertiaryBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="4" Padding="6,2" Margin="8,0,0,0" VerticalAlignment="Center">
                                                         <TextBlock Text="{Binding EngineBadge}" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
@@ -2488,18 +2493,24 @@
                                                 <ProgressBar Value="{Binding DownloadProgress}" Maximum="1.0" Height="4" Background="{DynamicResource BgTertiaryBrush}" Foreground="{DynamicResource AccentPrimaryBrush}" BorderThickness="0" Margin="0,8,0,0" Visibility="{Binding IsDownloading, Converter={StaticResource BoolToVisConverter}}" />
                                             </StackPanel>
 
-                                            <!-- Actions: Status / Download / Delete -->
+                                            <!-- Actions: Status / Download / Delete / Cancel -->
                                             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                                <!-- Downloaded Badge + Delete Button -->
-                                                <StackPanel Orientation="Horizontal" Visibility="{Binding IsDownloaded, Converter={StaticResource BoolToVisConverter}}">
-                                                    <Border Background="{DynamicResource SuccessBrush}" CornerRadius="6" Padding="10,6" Margin="0,0,8,0">
-                                                        <TextBlock Text="{loc:Loc Models_Status_Downloaded}" FontSize="11" FontWeight="Bold" Foreground="White" />
-                                                    </Border>
-                                                    <Button Content="🗑" Style="{StaticResource DangerButton}" Command="{Binding DataContext.DeleteModelCardCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" Height="34" Padding="10,0" ToolTip="{loc:Loc Models_Action_Delete_Tooltip}" />
-                                                </StackPanel>
+                                                <!-- Downloading State: Cancel Button -->
+                                                <Button Content="{loc:Loc Models_Action_Cancel}" Style="{StaticResource DangerButton}" Command="{Binding DataContext.CancelDownloadModelCardCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" Height="34" Padding="12,0" FontSize="11.5" Visibility="{Binding IsDownloading, Converter={StaticResource BoolToVisConverter}}" />
 
-                                                <!-- Not Downloaded: Download Button -->
-                                                <Button Content="{Binding FormattedSize, StringFormat='{}⬇ Descargar ({0})'}" Style="{StaticResource PrimaryButton}" Command="{Binding DataContext.DownloadModelCardCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" IsEnabled="{Binding IsDownloading, Converter={StaticResource InverseBoolToVisConverter}}" Height="34" Padding="14,0" FontSize="12" Visibility="{Binding IsDownloaded, Converter={StaticResource InverseBoolToVisConverter}}" />
+                                                <!-- When not downloading: Downloaded Badge + Delete or Download / Retry -->
+                                                <StackPanel Orientation="Horizontal" Visibility="{Binding IsDownloading, Converter={StaticResource InverseBoolToVisConverter}}">
+                                                    <!-- Downloaded Badge + Delete Button -->
+                                                    <StackPanel Orientation="Horizontal" Visibility="{Binding IsDownloaded, Converter={StaticResource BoolToVisConverter}}">
+                                                        <Border Background="{DynamicResource SuccessBrush}" CornerRadius="6" Padding="10,6" Margin="0,0,8,0">
+                                                            <TextBlock Text="{loc:Loc Models_Status_Downloaded}" FontSize="11" FontWeight="Bold" Foreground="White" />
+                                                        </Border>
+                                                        <Button Content="🗑" Style="{StaticResource DangerButton}" Command="{Binding DataContext.DeleteModelCardCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" Height="34" Padding="10,0" ToolTip="{loc:Loc Models_Action_Delete_Tooltip}" />
+                                                    </StackPanel>
+
+                                                    <!-- Not Downloaded: Download / Retry Button -->
+                                                    <Button Content="{Binding FormattedSize, StringFormat='{}⬇ Descargar ({0})'}" Style="{StaticResource PrimaryButton}" Command="{Binding DataContext.DownloadModelCardCommand, RelativeSource={RelativeSource AncestorType=Window}}" CommandParameter="{Binding}" Height="34" Padding="14,0" FontSize="12" Visibility="{Binding IsDownloaded, Converter={StaticResource InverseBoolToVisConverter}}" />
+                                                </StackPanel>
                                             </StackPanel>
                                         </Grid>
                                     </Border>
@@ -4024,25 +4035,39 @@
                         </StackPanel>
                     </StackPanel>
 
-                    <!-- Location Selector -->
-                    <Border Grid.Row="1" Background="{DynamicResource CardItemBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="8" Padding="12,10" Margin="0,0,0,14">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0">
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+                    <!-- Location Selector & Minimum Requirement Callout -->
+                    <StackPanel Grid.Row="1" Margin="0,0,0,14">
+                        <!-- Location Selector Box -->
+                        <Border Background="{DynamicResource CardItemBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="8" Padding="12,10" Margin="0,0,0,10">
+                            <StackPanel>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
                                     <TextBlock Text="{loc:Loc Onboarding_Location_Label}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
                                     <Border Background="{DynamicResource BgTertiaryBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="4" Padding="5,1" Margin="6,0,0,0" VerticalAlignment="Center">
                                         <TextBlock Text="{Binding ModelsDirectoryTypeBadge}" FontSize="9.5" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
                                     </Border>
                                 </StackPanel>
-                                <TextBlock Text="{Binding CurrentModelsDirectory}" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" ToolTip="{Binding CurrentModelsDirectory}" />
+                                <Grid Margin="0,0,0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox Grid.Column="0" Text="{Binding EditableModelsDirectory, UpdateSourceTrigger=PropertyChanged}" FontSize="11" Height="30" VerticalContentAlignment="Center" Margin="0,0,6,0" ToolTip="{Binding CurrentModelsDirectory}" />
+                                    <Button Grid.Column="1" Content="Aplicar" Style="{StaticResource SecondaryButton}" Command="{Binding ApplyModelsDirectoryCommand}" Height="30" Padding="10,0" Margin="0,0,6,0" FontSize="11" />
+                                    <Button Grid.Column="2" Content="{loc:Loc Models_Change_Folder}" Style="{StaticResource SecondaryButton}" Command="{Binding ChangeModelsDirectoryCommand}" Height="30" Padding="10,0" FontSize="11" />
+                                </Grid>
+                                <TextBlock Text="{Binding DetectedModelsSummary}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
                             </StackPanel>
-                            <Button Grid.Column="1" Content="{loc:Loc Models_Change_Folder}" Style="{StaticResource GhostButton}" Command="{Binding ChangeModelsDirectoryCommand}" Height="30" Padding="10,0" FontSize="11.5" VerticalAlignment="Center" />
-                        </Grid>
-                    </Border>
+                        </Border>
+
+                        <!-- Callout: Requisito Mínimo Obligatorio -->
+                        <Border Background="{DynamicResource AccentLightBrush}" BorderBrush="{DynamicResource AccentPrimaryBrush}" BorderThickness="1" CornerRadius="8" Padding="12,10">
+                            <StackPanel>
+                                <TextBlock Text="Requisito mínimo: disponer de al menos un modelo ASR instalado para poder transcribir audio." FontSize="11.5" FontWeight="Bold" Foreground="{DynamicResource AccentPrimaryBrush}" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding MinimumAsrStatusText}" FontSize="11" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,4,0,0" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
 
                     <!-- Models List -->
                     <ItemsControl Grid.Row="2" ItemsSource="{Binding FirstRunModels}">
@@ -4124,18 +4149,20 @@
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
 
-                            <!-- Ahora no (Left) -->
+                            <!-- Continuar sin descargar / Ahora no (Left) -->
                             <Button Grid.Column="0" Content="{loc:Loc Onboarding_Skip_Button}" Style="{StaticResource GhostButton}" Command="{Binding DismissFirstRunModalCommand}" Height="38" Padding="14,0" FontSize="13" Foreground="{DynamicResource TextMutedBrush}" ToolTip="{loc:Loc Onboarding_Skip_Tooltip}" />
 
-                            <!-- Right actions: Descargar or Reintentar / Continuar -->
+                            <!-- Right actions: Botón explícito «Descargar modelos» y botón de descarga rápida -->
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" Visibility="{Binding FirstRunHasError, Converter={StaticResource InverseBoolToVisConverter}}">
+                                <Button Content="Descargar modelos..." Style="{StaticResource SecondaryButton}" Command="{Binding OpenModelCatalogFromFirstRunCommand}" Height="38" Padding="16,0" FontSize="13" Margin="0,0,8,0" ToolTip="Consultar el catálogo de modelos y seleccionar cuáles instalar" />
+                                <Button Content="{Binding FirstRunDownloadButtonText}" Style="{StaticResource PrimaryButton}" Command="{Binding StartFirstRunDownloadsCommand}" Height="38" Padding="20,0" FontWeight="SemiBold" FontSize="13" />
+                            </StackPanel>
+
                             <!-- If error: Reintentar and Continuar -->
                             <StackPanel Grid.Column="2" Orientation="Horizontal" Visibility="{Binding FirstRunHasError, Converter={StaticResource BoolToVisConverter}}">
                                 <Button Content="{loc:Loc Onboarding_Continue_Button}" Style="{StaticResource SecondaryButton}" Command="{Binding CloseFirstRunModalAfterErrorCommand}" Height="38" Padding="16,0" Margin="0,0,8,0" />
                                 <Button Content="{loc:Loc Onboarding_Retry_Button}" Style="{StaticResource PrimaryButton}" Command="{Binding StartFirstRunDownloadsCommand}" Height="38" Padding="18,0" FontWeight="SemiBold" />
                             </StackPanel>
-
-                            <!-- If no error: Descargar modelos button -->
-                            <Button Grid.Column="2" Content="{Binding FirstRunDownloadButtonText}" Style="{StaticResource PrimaryButton}" Command="{Binding StartFirstRunDownloadsCommand}" Height="38" Padding="22,0" FontWeight="SemiBold" FontSize="13" Visibility="{Binding FirstRunHasError, Converter={StaticResource InverseBoolToVisConverter}}" />
                         </Grid>
 
                         <!-- Buttons Row: Downloading state -->

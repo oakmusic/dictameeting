@@ -1,4 +1,9 @@
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using DictaMeeting.Diarization.Interfaces;
 using DictaMeeting.Diarization.Models;
 using DictaMeeting.Diarization.Pipeline;
@@ -20,6 +25,7 @@ public sealed class PyAnnoteCommunity1DiarizationService : ISpeakerDiarizationSe
 
     private Community1DiarizationPipeline? _pipeline;
     private readonly List<string> _knownSpeakers = new();
+    private int _activeInferences;
     private bool _disposed;
 
     public IReadOnlyList<string> KnownSpeakers
@@ -54,11 +60,7 @@ public sealed class PyAnnoteCommunity1DiarizationService : ISpeakerDiarizationSe
     public void SetModelsFolder(string? folder)
     {
         _customModelsFolder = !string.IsNullOrWhiteSpace(folder) ? Path.GetFullPath(folder) : null;
-        lock (_lock)
-        {
-            _pipeline?.Dispose();
-            _pipeline = null;
-        }
+        UnloadPipeline();
     }
 
     public void Reset()
@@ -66,6 +68,39 @@ public sealed class PyAnnoteCommunity1DiarizationService : ISpeakerDiarizationSe
         lock (_lock)
         {
             _knownSpeakers.Clear();
+        }
+    }
+
+    /// <summary>
+    /// Libera las sesiones ONNX del pipeline de diarización si no hay inferencias en curso.
+    /// Permite recuperar memoria nativa tras finalizar una diarización pesada.
+    /// </summary>
+    public void UnloadPipeline()
+    {
+        lock (_lock)
+        {
+            if (_activeInferences > 0)
+            {
+                _logger?.LogDebug("No se puede descargar el pipeline de diarización: hay {Count} inferencia(s) en curso.", _activeInferences);
+                return;
+            }
+
+            if (_pipeline != null)
+            {
+                _logger?.LogInformation("Descargando pipeline de diarización PyAnnote Community-1 para liberar recursos de memoria.");
+                try
+                {
+                    _pipeline.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogWarning(ex, "Excepción menor al liberar pipeline de diarización.");
+                }
+                finally
+                {
+                    _pipeline = null;
+                }
+            }
         }
     }
 
@@ -114,12 +149,28 @@ public sealed class PyAnnoteCommunity1DiarizationService : ISpeakerDiarizationSe
 
             bool wasCold;
             TimeSpan initTime;
+            Community1DiarizationPipeline pipeline;
+
             lock (_lock)
             {
                 (wasCold, initTime) = EnsurePipelineInitialized(options?.PreferredExecutionProvider);
+                pipeline = _pipeline!;
+                _activeInferences++;
             }
 
-            var result = _pipeline!.ProcessAudio(resampled, options, progress, cancellationToken);
+            DiarizationResult result;
+            try
+            {
+                result = pipeline.ProcessAudio(resampled, options, progress, cancellationToken);
+            }
+            finally
+            {
+                lock (_lock)
+                {
+                    _activeInferences--;
+                }
+            }
+
             result.Timings.IsWarmRun = !wasCold;
             result.Timings.ModelInitializationTime = initTime;
 
@@ -194,42 +245,94 @@ public sealed class PyAnnoteCommunity1DiarizationService : ISpeakerDiarizationSe
         using var reader = new AudioFileReader(audioFilePath);
         int channels = reader.WaveFormat.Channels;
         int sampleRate = reader.WaveFormat.SampleRate;
+        int bitsPerSample = reader.WaveFormat.BitsPerSample;
 
-        var sampleList = new List<float>();
+        // Estimar el número de muestras mono esperadas para evitar la duplicación de pico de List<float>.ToArray()
+        long totalInputSamples = bitsPerSample > 0
+            ? reader.Length / (bitsPerSample / 8)
+            : 0L;
+        long estimatedMonoSamples = channels > 0 && totalInputSamples > 0
+            ? totalInputSamples / channels
+            : 0L;
+
+        float[] result;
+        int writePos = 0;
         float[] buffer = new float[16384];
         ISampleProvider sampleProvider = reader;
         int read;
-        while ((read = sampleProvider.Read(buffer.AsSpan())) > 0)
+
+        if (estimatedMonoSamples > 0 && estimatedMonoSamples <= int.MaxValue)
         {
-            if (channels == 1)
+            // Asignación inicial con el tamaño estimado (evita reasignaciones para WAV)
+            result = new float[(int)estimatedMonoSamples];
+
+            while ((read = sampleProvider.Read(buffer.AsSpan())) > 0)
             {
-                for (int i = 0; i < read; i++)
+                if (channels == 1)
                 {
-                    sampleList.Add(buffer[i]);
+                    if (writePos + read > result.Length)
+                    {
+                        Array.Resize(ref result, Math.Max(result.Length * 2, writePos + read));
+                    }
+                    buffer.AsSpan(0, read).CopyTo(result.AsSpan(writePos));
+                    writePos += read;
+                }
+                else
+                {
+                    int framesInRead = (read + channels - 1) / channels;
+                    if (writePos + framesInRead > result.Length)
+                    {
+                        Array.Resize(ref result, Math.Max(result.Length * 2, writePos + framesInRead));
+                    }
+
+                    for (int i = 0; i < read && writePos < result.Length; i += channels)
+                    {
+                        float sum = 0f;
+                        int chCount = Math.Min(channels, read - i);
+                        for (int ch = 0; ch < chCount; ch++)
+                        {
+                            sum += buffer[i + ch];
+                        }
+                        result[writePos++] = sum / chCount;
+                    }
                 }
             }
-            else
+
+            if (writePos < result.Length)
             {
-                for (int i = 0; i < read; i += channels)
-                {
-                    float sum = 0f;
-                    int count = Math.Min(channels, read - i);
-                    for (int ch = 0; ch < count; ch++)
-                    {
-                        sum += buffer[i + ch];
-                    }
-                    sampleList.Add(sum / count);
-                }
+                Array.Resize(ref result, writePos);
             }
         }
+        else
+        {
+            // Fallback dinámico si no se pudo estimar la longitud
+            var sampleList = new List<float>();
+            while ((read = sampleProvider.Read(buffer.AsSpan())) > 0)
+            {
+                if (channels == 1)
+                {
+                    for (int i = 0; i < read; i++) sampleList.Add(buffer[i]);
+                }
+                else
+                {
+                    for (int i = 0; i < read; i += channels)
+                    {
+                        float sum = 0f;
+                        int count = Math.Min(channels, read - i);
+                        for (int ch = 0; ch < count; ch++) sum += buffer[i + ch];
+                        sampleList.Add(sum / count);
+                    }
+                }
+            }
+            result = sampleList.ToArray();
+        }
 
-        float[] samples = sampleList.ToArray();
         if (sampleRate != 16000)
         {
-            samples = ResampleLinear(samples, sampleRate, 16000);
+            result = ResampleLinear(result, sampleRate, 16000);
         }
 
-        return samples;
+        return result;
     }
 
     private static float[] ResampleLinear(float[] input, int inRate, int outRate)
@@ -255,6 +358,6 @@ public sealed class PyAnnoteCommunity1DiarizationService : ISpeakerDiarizationSe
     {
         if (_disposed) return;
         _disposed = true;
-        _pipeline?.Dispose();
+        UnloadPipeline();
     }
 }

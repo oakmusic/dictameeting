@@ -42,6 +42,11 @@ public interface ISpeakerDiarizationService : IDisposable
         DiarizationOptions? options = null,
         IProgress<double>? progress = null,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Descarga el pipeline de inferencia ONNX de memoria para liberar recursos si no hay operaciones en curso.
+    /// </summary>
+    void UnloadPipeline() { }
 }
 
 /// <summary>

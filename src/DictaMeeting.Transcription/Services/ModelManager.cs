@@ -12,9 +12,13 @@ public class ModelManager : IModelManager
 
     public string ModelsDirectory => _modelsFolder;
 
-    public ModelManager(string? modelsFolder = null, ILogger<ModelManager>? logger = null)
+    public ModelManager(string? modelsFolder = null, ILogger<ModelManager>? logger = null, HttpClient? httpClient = null)
     {
         _logger = logger;
+        if (httpClient != null)
+        {
+            SharedHttpClient = httpClient;
+        }
         if (!string.IsNullOrEmpty(modelsFolder))
         {
             _modelsFolder = Path.GetFullPath(modelsFolder);
@@ -59,6 +63,16 @@ public class ModelManager : IModelManager
         {
             _logger?.LogWarning(ex, "No se pudo asegurar el directorio de modelos tras actualizar ruta a '{Path}'.", _modelsFolder);
         }
+    }
+
+    private bool IsDefaultModelsFolder()
+    {
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var defaultFolder = Path.Combine(localAppData, "DictaMeeting", "models");
+        return string.Equals(
+            Path.GetFullPath(_modelsFolder).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+            Path.GetFullPath(defaultFolder).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+            StringComparison.OrdinalIgnoreCase);
     }
 
     public Task<HardwareCapabilities> DetectHardwareAsync()
@@ -191,19 +205,127 @@ public class ModelManager : IModelManager
             }
         };
 
+        string defaultDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "DictaMeeting", "models");
+        string baseDir = Path.Combine(AppContext.BaseDirectory, "models");
+
         foreach (var m in models)
         {
-            if (m.IsDirectory)
+            string relName = Path.GetFileName(m.LocalPath);
+            var candidateNames = new List<string> { relName };
+            if (m.Size == ModelSize.Qwen3_06B)
             {
-                m.IsDownloaded = IsQwenDirectoryValid(m.LocalPath);
+                candidateNames.Add("sherpa-onnx-qwen3-asr-0.6B");
+                candidateNames.Add("sherpa-onnx-qwen3-asr-0.6B-int8-2026-03-25");
             }
-            else
+            else if (m.Size == ModelSize.Qwen3_17B)
             {
-                m.IsDownloaded = File.Exists(m.LocalPath) && new FileInfo(m.LocalPath).Length > 1024 * 1024;
+                candidateNames.Add("sherpa-onnx-qwen3-asr-1.7B");
+                candidateNames.Add("sherpa-onnx-qwen3-asr-1.7B-int8");
             }
+
+            // 1. Ubicación configurada actual (_modelsFolder)
+            string? foundPrimary = null;
+            foreach (var cand in candidateNames)
+            {
+                string candPath = Path.Combine(_modelsFolder, cand);
+                bool isCandDownloaded = m.IsDirectory
+                    ? IsQwenDirectoryValid(candPath)
+                    : (File.Exists(candPath) && new FileInfo(candPath).Length > 1024 * 1024);
+
+                if (isCandDownloaded)
+                {
+                    foundPrimary = candPath;
+                    break;
+                }
+            }
+
+            if (foundPrimary != null)
+            {
+                m.LocalPath = foundPrimary;
+                m.IsDownloaded = true;
+                continue;
+            }
+
+            string primaryPath = Path.Combine(_modelsFolder, relName);
+
+            // 2. Comprobar instalación previa / directorio base solo si estamos en la ubicación predeterminada
+            if (IsDefaultModelsFolder())
+            {
+                string fallbackDefault = Path.Combine(defaultDir, relName);
+                bool isDefaultDownloaded = m.IsDirectory
+                    ? IsQwenDirectoryValid(fallbackDefault)
+                    : (File.Exists(fallbackDefault) && new FileInfo(fallbackDefault).Length > 1024 * 1024);
+
+                if (isDefaultDownloaded)
+                {
+                    m.LocalPath = fallbackDefault;
+                    m.IsDownloaded = true;
+                    continue;
+                }
+
+                string fallbackBase = Path.Combine(baseDir, relName);
+                bool isBaseDownloaded = m.IsDirectory
+                    ? IsQwenDirectoryValid(fallbackBase)
+                    : (File.Exists(fallbackBase) && new FileInfo(fallbackBase).Length > 1024 * 1024);
+
+                if (isBaseDownloaded)
+                {
+                    m.LocalPath = fallbackBase;
+                    m.IsDownloaded = true;
+                    continue;
+                }
+            }
+
+            // No descargado: la ruta por defecto será dentro de la carpeta configurada
+            m.LocalPath = primaryPath;
+            m.IsDownloaded = false;
         }
 
         return models;
+    }
+
+    public bool IsModelDownloaded(ModelSize modelSize)
+    {
+        var modelInfo = GetAvailableModels().FirstOrDefault(m => m.Size == modelSize);
+        return modelInfo?.IsDownloaded ?? false;
+    }
+
+    public string GetModelPath(ModelSize modelSize)
+    {
+        var modelInfo = GetAvailableModels().FirstOrDefault(m => m.Size == modelSize)
+            ?? throw new ArgumentException($"Modelo desconocido: {modelSize}");
+
+        if (!modelInfo.IsDownloaded)
+        {
+            throw new InvalidOperationException($"El modelo '{modelInfo.Name}' no está instalado en el disco. Descárguelo manualmente antes de utilizarlo.");
+        }
+
+        return modelInfo.LocalPath;
+    }
+
+    public bool IsModelIncomplete(ModelSize modelSize)
+    {
+        var modelInfo = GetAvailableModels().FirstOrDefault(m => m.Size == modelSize);
+        if (modelInfo == null || modelInfo.IsDownloaded) return false;
+
+        string path = Path.Combine(_modelsFolder, Path.GetFileName(modelInfo.LocalPath));
+        if (modelInfo.IsDirectory)
+        {
+            if (Directory.Exists(path))
+            {
+                var files = Directory.GetFiles(path, "*", SearchOption.AllDirectories);
+                return files.Length > 0 && !IsQwenDirectoryValid(path);
+            }
+        }
+        else
+        {
+            if (File.Exists(path + ".download")) return true;
+            if (File.Exists(path) && new FileInfo(path).Length > 0 && new FileInfo(path).Length <= 1024 * 1024) return true;
+        }
+
+        return false;
     }
 
     public static bool IsQwenDirectoryValid(string path)
@@ -215,7 +337,7 @@ public class ModelManager : IModelManager
         return hasFrontend && hasEncoder && hasDecoder;
     }
 
-    private static readonly HttpClient SharedHttpClient = CreateHttpClient();
+    internal static HttpClient SharedHttpClient = CreateHttpClient();
 
     private static HttpClient CreateHttpClient()
     {
@@ -224,7 +346,21 @@ public class ModelManager : IModelManager
         return client;
     }
 
-    public async Task<string> EnsureModelDownloadedAsync(
+    public Task<string> EnsureModelDownloadedAsync(
+        ModelSize modelSize,
+        IProgress<double>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (IsModelDownloaded(modelSize))
+        {
+            progress?.Report(1.0);
+            return Task.FromResult(GetModelPath(modelSize));
+        }
+
+        return DownloadModelAsync(modelSize, progress, cancellationToken);
+    }
+
+    public async Task<string> DownloadModelAsync(
         ModelSize modelSize,
         IProgress<double>? progress = null,
         CancellationToken cancellationToken = default)
@@ -232,16 +368,16 @@ public class ModelManager : IModelManager
         var modelInfo = GetAvailableModels().FirstOrDefault(m => m.Size == modelSize)
             ?? throw new ArgumentException($"Modelo desconocido: {modelSize}");
 
-        bool isDownloaded = modelInfo.IsDirectory 
-            ? IsQwenDirectoryValid(modelInfo.LocalPath) 
-            : (File.Exists(modelInfo.LocalPath) && new FileInfo(modelInfo.LocalPath).Length > 1024 * 1024);
-
-        if (isDownloaded)
+        if (IsModelDownloaded(modelSize))
         {
             _logger?.LogInformation("Modelo '{Name}' ya descargado en: {Path}", modelInfo.Name, modelInfo.LocalPath);
             progress?.Report(1.0);
             return modelInfo.LocalPath;
         }
+
+        // Asegurar que el destino final sea siempre dentro de la carpeta configurada actual (_modelsFolder)
+        string targetPath = Path.Combine(_modelsFolder, Path.GetFileName(modelInfo.LocalPath));
+        modelInfo.LocalPath = targetPath;
 
         if (modelInfo.Engine == ModelEngineType.Qwen3)
         {
@@ -252,7 +388,7 @@ public class ModelManager : IModelManager
             return await DownloadAndExtractQwenModelAsync(modelInfo, progress, cancellationToken);
         }
 
-        var tempPath = modelInfo.LocalPath + ".download";
+        var tempPath = targetPath + ".download";
         _logger?.LogInformation("Descargando modelo '{Name}'...", modelInfo.Name);
 
         var ggmlType = modelSize switch
@@ -581,28 +717,73 @@ public class ModelManager : IModelManager
 
     public bool IsDiarizationModelDownloaded()
     {
+        // 1. Carpeta configurada actual (_modelsFolder/diarization)
         string dir = Path.Combine(_modelsFolder, "diarization");
+        if (CheckDiarizationDirectory(dir)) return true;
+
+        // 2. Comprobar instalación previa o directorio de la aplicación solo si estamos en la ubicación predeterminada
+        if (IsDefaultModelsFolder())
+        {
+            string defaultDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DictaMeeting", "models", "diarization");
+            if (CheckDiarizationDirectory(defaultDir)) return true;
+
+            string baseDir = Path.Combine(AppContext.BaseDirectory, "models", "diarization");
+            if (CheckDiarizationDirectory(baseDir)) return true;
+        }
+
+        return false;
+    }
+
+    private static bool CheckDiarizationDirectory(string dir)
+    {
+        if (!Directory.Exists(dir)) return false;
         string segPath = Path.Combine(dir, "community1-segmentation.onnx");
         string embPath = Path.Combine(dir, "community1-embedding.onnx");
         string pldaPath = Path.Combine(dir, "plda_community1.bin");
 
-        if (File.Exists(segPath) && File.Exists(embPath) && File.Exists(pldaPath))
-        {
-            return new FileInfo(segPath).Length > 100_000 &&
-                   new FileInfo(embPath).Length > 1_000_000 &&
-                   new FileInfo(pldaPath).Length > 10_000;
-        }
-
-        // Comprobar si vienen incluidos junto al ejecutable
-        string baseDir = Path.Combine(AppContext.BaseDirectory, "models", "diarization");
-        string baseSeg = Path.Combine(baseDir, "community1-segmentation.onnx");
-        string baseEmb = Path.Combine(baseDir, "community1-embedding.onnx");
-        string basePlda = Path.Combine(baseDir, "plda_community1.bin");
-
-        return File.Exists(baseSeg) && File.Exists(baseEmb) && File.Exists(basePlda);
+        return File.Exists(segPath) && File.Exists(embPath) && File.Exists(pldaPath) &&
+               new FileInfo(segPath).Length > 100_000 &&
+               new FileInfo(embPath).Length > 1_000_000 &&
+               new FileInfo(pldaPath).Length > 10_000;
     }
 
-    public async Task<string> EnsureDiarizationModelDownloadedAsync(IProgress<double>? progress = null, CancellationToken cancellationToken = default)
+    public string GetDiarizationModelPath()
+    {
+        string dir = Path.Combine(_modelsFolder, "diarization");
+        if (CheckDiarizationDirectory(dir)) return Path.Combine(dir, "community1-segmentation.onnx");
+
+        if (IsDefaultModelsFolder())
+        {
+            string defaultDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DictaMeeting", "models", "diarization");
+            if (CheckDiarizationDirectory(defaultDir)) return Path.Combine(defaultDir, "community1-segmentation.onnx");
+
+            string baseDir = Path.Combine(AppContext.BaseDirectory, "models", "diarization");
+            if (CheckDiarizationDirectory(baseDir)) return Path.Combine(baseDir, "community1-segmentation.onnx");
+        }
+
+        return Path.Combine(dir, "community1-segmentation.onnx");
+    }
+
+    public bool IsDiarizationModelIncomplete()
+    {
+        if (IsDiarizationModelDownloaded()) return false;
+        string dir = Path.Combine(_modelsFolder, "diarization");
+        if (!Directory.Exists(dir)) return false;
+        return Directory.GetFiles(dir, "*", SearchOption.AllDirectories).Length > 0;
+    }
+
+    public Task<string> EnsureDiarizationModelDownloadedAsync(IProgress<double>? progress = null, CancellationToken cancellationToken = default)
+    {
+        if (IsDiarizationModelDownloaded())
+        {
+            progress?.Report(1.0);
+            return Task.FromResult(GetDiarizationModelPath());
+        }
+
+        return DownloadDiarizationModelAsync(progress, cancellationToken);
+    }
+
+    public async Task<string> DownloadDiarizationModelAsync(IProgress<double>? progress = null, CancellationToken cancellationToken = default)
     {
         string targetDir = Path.Combine(_modelsFolder, "diarization");
         Directory.CreateDirectory(targetDir);
@@ -613,14 +794,8 @@ public class ModelManager : IModelManager
 
         if (IsDiarizationModelDownloaded())
         {
-            // Si están en BaseDirectory pero no en targetDir, copiarlos para centralizar
-            string baseDir = Path.Combine(AppContext.BaseDirectory, "models", "diarization");
-            if (!File.Exists(segPath) && File.Exists(Path.Combine(baseDir, "community1-segmentation.onnx")))
-            {
-                CopyDirectoryRecursively(baseDir, targetDir);
-            }
             progress?.Report(1.0);
-            return targetDir;
+            return GetDiarizationModelPath();
         }
 
         _logger?.LogInformation("Descargando modelos de Diarización PyAnnote Community-1...");
@@ -644,27 +819,36 @@ public class ModelManager : IModelManager
             }
 
             string tempFile = dest + ".download";
-            using (var resp = await SharedHttpClient.GetAsync(item.Url, HttpCompletionOption.ResponseHeadersRead, cancellationToken))
+            try
             {
-                resp.EnsureSuccessStatusCode();
-                using var contentStream = await resp.Content.ReadAsStreamAsync(cancellationToken);
-                using var fileStream = File.Create(tempFile);
-
-                byte[] buffer = new byte[81920];
-                int read;
-                while ((read = await contentStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken)) > 0)
+                cancellationToken.ThrowIfCancellationRequested();
+                using (var resp = await SharedHttpClient.GetAsync(item.Url, HttpCompletionOption.ResponseHeadersRead, cancellationToken))
                 {
-                    await fileStream.WriteAsync(buffer, 0, read, cancellationToken);
-                    totalBytesDownloaded += read;
-                    progress?.Report(Math.Min(0.99, (double)totalBytesDownloaded / totalBytesExpected));
-                }
-            }
+                    resp.EnsureSuccessStatusCode();
+                    using var contentStream = await resp.Content.ReadAsStreamAsync(cancellationToken);
+                    using var fileStream = File.Create(tempFile);
 
-            if (File.Exists(dest)) File.Delete(dest);
-            File.Move(tempFile, dest);
+                    byte[] buffer = new byte[81920];
+                    int read;
+                    while ((read = await contentStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken)) > 0)
+                    {
+                        await fileStream.WriteAsync(buffer, 0, read, cancellationToken);
+                        totalBytesDownloaded += read;
+                        progress?.Report(Math.Min(0.99, (double)totalBytesDownloaded / totalBytesExpected));
+                    }
+                }
+
+                if (File.Exists(dest)) File.Delete(dest);
+                File.Move(tempFile, dest);
+            }
+            catch
+            {
+                try { if (File.Exists(tempFile)) File.Delete(tempFile); } catch { }
+                throw;
+            }
         }
 
-        // Si falta plda_community1.bin, copiar de la distribución local o crear
+        // Si falta plda_community1.bin, copiar de la distribución local o de instalación previa
         if (!File.Exists(pldaPath))
         {
             string basePlda = Path.Combine(AppContext.BaseDirectory, "models", "diarization", "plda_community1.bin");
@@ -672,11 +856,117 @@ public class ModelManager : IModelManager
             {
                 File.Copy(basePlda, pldaPath, true);
             }
+            else
+            {
+                string defaultPlda = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DictaMeeting", "models", "diarization", "plda_community1.bin");
+                if (File.Exists(defaultPlda))
+                {
+                    File.Copy(defaultPlda, pldaPath, true);
+                }
+            }
+        }
+
+        if (!CheckDiarizationDirectory(targetDir))
+        {
+            throw new InvalidOperationException("La descarga de los modelos de diarización finalizó pero faltan componentes obligatorios.");
         }
 
         progress?.Report(1.0);
         _logger?.LogInformation("Modelos PyAnnote Community-1 descargados y verificados con éxito.");
         return targetDir;
+    }
+
+    public bool IsVadModelDownloaded()
+    {
+        string p1 = Path.Combine(_modelsFolder, "silero", "silero_vad.onnx");
+        if (File.Exists(p1) && new FileInfo(p1).Length > 100_000) return true;
+
+        if (IsDefaultModelsFolder())
+        {
+            string defaultVad = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DictaMeeting", "models", "silero", "silero_vad.onnx");
+            if (File.Exists(defaultVad) && new FileInfo(defaultVad).Length > 100_000) return true;
+
+            string baseVad = Path.Combine(AppContext.BaseDirectory, "models", "silero", "silero_vad.onnx");
+            if (File.Exists(baseVad) && new FileInfo(baseVad).Length > 100_000) return true;
+        }
+
+        return false;
+    }
+
+    public string GetVadModelPath()
+    {
+        string p1 = Path.Combine(_modelsFolder, "silero", "silero_vad.onnx");
+        if (File.Exists(p1) && new FileInfo(p1).Length > 100_000) return p1;
+
+        if (IsDefaultModelsFolder())
+        {
+            string defaultVad = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DictaMeeting", "models", "silero", "silero_vad.onnx");
+            if (File.Exists(defaultVad) && new FileInfo(defaultVad).Length > 100_000) return defaultVad;
+
+            string baseVad = Path.Combine(AppContext.BaseDirectory, "models", "silero", "silero_vad.onnx");
+            if (File.Exists(baseVad) && new FileInfo(baseVad).Length > 100_000) return baseVad;
+        }
+
+        return p1;
+    }
+
+    public bool IsVadModelIncomplete()
+    {
+        if (IsVadModelDownloaded()) return false;
+        string temp = Path.Combine(_modelsFolder, "silero", "silero_vad.onnx.download");
+        string p1 = Path.Combine(_modelsFolder, "silero", "silero_vad.onnx");
+        return File.Exists(temp) || (File.Exists(p1) && new FileInfo(p1).Length > 0 && new FileInfo(p1).Length <= 500_000);
+    }
+
+    public async Task<string> DownloadVadModelAsync(IProgress<double>? progress = null, CancellationToken cancellationToken = default)
+    {
+        string targetDir = Path.Combine(_modelsFolder, "silero");
+        Directory.CreateDirectory(targetDir);
+
+        if (IsVadModelDownloaded())
+        {
+            progress?.Report(1.0);
+            return GetVadModelPath();
+        }
+
+        string dest = Path.Combine(targetDir, "silero_vad.onnx");
+        string temp = dest + ".download";
+        string url = "https://raw.githubusercontent.com/snakers4/silero-vad/master/src/silero_vad/data/silero_vad.onnx";
+        long expectedSize = 2_327_524;
+
+        _logger?.LogInformation("Descargando modelo Silero VAD v5...");
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            using (var resp = await SharedHttpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken))
+            {
+                resp.EnsureSuccessStatusCode();
+                using var contentStream = await resp.Content.ReadAsStreamAsync(cancellationToken);
+                using var fileStream = File.Create(temp);
+
+                byte[] buffer = new byte[81920];
+                int read;
+                long totalRead = 0;
+                while ((read = await contentStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken)) > 0)
+                {
+                    await fileStream.WriteAsync(buffer, 0, read, cancellationToken);
+                    totalRead += read;
+                    progress?.Report(Math.Min(0.99, (double)totalRead / expectedSize));
+                }
+            }
+
+            if (File.Exists(dest)) File.Delete(dest);
+            File.Move(temp, dest);
+
+            progress?.Report(1.0);
+            _logger?.LogInformation("Modelo Silero VAD v5 descargado y verificado con éxito.");
+            return dest;
+        }
+        catch
+        {
+            try { if (File.Exists(temp)) File.Delete(temp); } catch { }
+            throw;
+        }
     }
 }
 

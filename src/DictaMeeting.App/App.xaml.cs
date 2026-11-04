@@ -40,7 +40,7 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
-        var version = typeof(App).Assembly.GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "1.5.9";
+        var version = typeof(App).Assembly.GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "1.6.0";
         LogBoot($"[App] Iniciando DictaMeeting v{version} (.NET {Environment.Version}, OS: {Environment.OSVersion}, 64-bit: {Environment.Is64BitProcess})");
 
         // Prevenir cierre prematuro de la aplicación durante la transición SplashWindow -> MainWindow
@@ -288,6 +288,9 @@ public partial class App : Application
 
         // Restauración de Puntuación y Capitalización Local (Postprocesamiento)
         services.AddSingleton<IPunctuationService, OnnxPunctuationService>();
+
+        // Monitorización y Diagnóstico de Memoria
+        services.AddSingleton<IMemoryPressureMonitor, MemoryPressureMonitor>();
 
         // Procesamiento en Segundo Plano
         services.AddSingleton<IMeetingProcessingService, MeetingProcessingService>();
